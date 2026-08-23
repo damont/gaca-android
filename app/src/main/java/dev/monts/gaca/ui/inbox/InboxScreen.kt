@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -68,7 +71,12 @@ fun InboxScreen(
 
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    Column(Modifier.fillMaxSize().background(PageBackground)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(PageBackground) // paints edge-to-edge, behind the status/nav bars
+            .windowInsetsPadding(WindowInsets.systemBars), // ...while content stays clear of them
+    ) {
         Row(
             Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp, top = 20.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -107,21 +115,32 @@ fun InboxScreen(
             }
         }
 
+        val isEmpty = state.alerts.isEmpty() && !state.isLoading
+
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = { viewModel.refresh() },
             modifier = Modifier.fillMaxSize(),
         ) {
-            when {
-                state.alerts.isEmpty() && !state.isLoading && state.activeTab == InboxTab.NEW ->
-                    EmptyRewardState()
-                state.alerts.isEmpty() && !state.isLoading ->
-                    QuietEmptyState(state.activeTab.label)
-                else -> LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 22.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+            // Always a LazyColumn, even for the empty states — PullToRefreshBox's
+            // pull gesture is driven by nested scroll, which only fires from an
+            // actually-scrollable child. A plain centered Box never dispatches
+            // those events, so the empty inbox (the state you'll see most often)
+            // would silently ignore a pull-down without this. fillParentMaxSize()
+            // sizes the empty-state item to the viewport so it still centers
+            // correctly instead of collapsing to its content height.
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 22.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (isEmpty) {
+                    item {
+                        Box(Modifier.fillParentMaxSize()) {
+                            if (state.activeTab == InboxTab.NEW) EmptyRewardState() else QuietEmptyState(state.activeTab.label)
+                        }
+                    }
+                } else {
                     items(state.alerts, key = { it.id }) { alert ->
                         key(alert.id) {
                             SwipeableAlertRow(
