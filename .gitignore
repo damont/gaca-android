@@ -1,0 +1,21 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+app/build/
+app/release/
+
+# Per-machine, never shared: Google Sign-In web client id, base URL overrides.
+local.properties
+
+# Firebase config — embeds a project-scoped API key; treated the same as
+# local.properties even though Google doesn't consider it a true secret.
+app/google-services.json

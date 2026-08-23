@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Gaca</string>
+
+    <string name="notification_channel_urgent_id" translatable="false">alerts_urgent</string>
+    <string name="notification_channel_urgent_name">Urgent alerts</string>
+    <string name="notification_channel_urgent_description">Things that need you right away</string>
+
+    <string name="notification_channel_standard_id" translatable="false">alerts_standard</string>
+    <string name="notification_channel_standard_name">Alerts</string>
+    <string name="notification_channel_standard_description">Everything else Hermes tells you about</string>
+</resources>

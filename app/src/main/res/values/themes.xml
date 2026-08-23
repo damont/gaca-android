@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only used for the brief window before Compose's own GacaTheme takes
+         over (splash/launch background) — the real theme lives in Theme.kt. -->
+    <style name="Theme.Gaca" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/page_background</item>
+        <item name="android:statusBarColor">@color/page_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
