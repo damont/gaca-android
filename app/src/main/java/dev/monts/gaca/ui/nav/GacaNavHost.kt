@@ -28,6 +28,8 @@ import dev.monts.gaca.ui.detail.AlertDetailScreen
 import dev.monts.gaca.ui.detail.AlertDetailViewModel
 import dev.monts.gaca.ui.inbox.InboxScreen
 import dev.monts.gaca.ui.inbox.InboxViewModel
+import dev.monts.gaca.ui.newdelegation.NewDelegationScreen
+import dev.monts.gaca.ui.newdelegation.NewDelegationViewModel
 import dev.monts.gaca.ui.settings.SettingsScreen
 import dev.monts.gaca.ui.settings.SettingsViewModel
 import dev.monts.gaca.ui.theme.HeaderAccent
@@ -37,6 +39,7 @@ private const val ROUTE_LOGIN = "login"
 private const val ROUTE_INBOX = "inbox"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_DETAIL = "detail/{alertId}"
+private const val ROUTE_NEW_DELEGATION = "new-delegation"
 
 @Composable
 fun GacaNavHost(
@@ -105,12 +108,15 @@ fun GacaNavHost(
         }
         composable(ROUTE_INBOX) {
             val vm = viewModel<InboxViewModel>(
-                factory = viewModelFactory { initializer { InboxViewModel(container.alertsRepository) } },
+                factory = viewModelFactory {
+                    initializer { InboxViewModel(container.alertsRepository, container.authRepository) }
+                },
             )
             InboxScreen(
                 viewModel = vm,
                 onOpenAlert = { id -> navController.navigate("detail/$id") },
                 onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onNewDelegation = { navController.navigate(ROUTE_NEW_DELEGATION) },
             )
         }
         composable(
@@ -124,6 +130,14 @@ fun GacaNavHost(
                 },
             )
             AlertDetailScreen(vm, onBack = { navController.popBackStack() })
+        }
+        composable(ROUTE_NEW_DELEGATION) {
+            val vm = viewModel<NewDelegationViewModel>(
+                factory = viewModelFactory {
+                    initializer { NewDelegationViewModel(container.alertsRepository, container.authRepository) }
+                },
+            )
+            NewDelegationScreen(vm, onBack = { navController.popBackStack() })
         }
         composable(ROUTE_SETTINGS) {
             val vm = viewModel<SettingsViewModel>(

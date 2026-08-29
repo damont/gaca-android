@@ -42,6 +42,19 @@ data class AlertListDto(
     val alerts: List<AlertDto> = emptyList(),
 )
 
+/** Body for POST /alerts — normally an agent posts here, but nothing about the
+ * endpoint requires that; a plain session token works too, which is what lets
+ * the app raise its own alert to immediately delegate. */
+@Serializable
+data class AlertCreateRequest(
+    val kind: String,
+    val title: String,
+    val severity: String = "info",
+    val body: String? = null,
+    val source: String = "gaca-android",
+    val agent: String? = null,
+)
+
 @Serializable
 data class AlertResolveRequest(
     val note: String? = null,
@@ -124,6 +137,26 @@ data class AgentDto(
 data class AgentsDto(
     val host: String? = null,
     val agents: List<AgentDto> = emptyList(),
+)
+
+/** A single turn in a session's transcript — GET /sessions/{id}. */
+@Serializable
+data class MessageDto(
+    val id: String,
+    @SerialName("session_id") val sessionId: String,
+    val role: String,
+    val content: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+/** GET /sessions/{id} — a session plus every message in it, oldest first. */
+@Serializable
+data class SessionDetailDto(
+    val id: String,
+    @SerialName("created_at") val createdAt: String,
+    val title: String? = null,
+    val status: String,
+    val messages: List<MessageDto> = emptyList(),
 )
 
 @Serializable

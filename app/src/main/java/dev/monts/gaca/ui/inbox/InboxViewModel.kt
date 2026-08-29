@@ -3,7 +3,9 @@ package dev.monts.gaca.ui.inbox
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.repo.Alert
+import dev.monts.gaca.data.repo.AgentProfile
 import dev.monts.gaca.data.repo.AlertsRepository
+import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.isStaleTransition
 import dev.monts.gaca.util.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,10 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class InboxTab(val effectiveStatus: String, val label: String) {
-    NEW("new", "New"),
-    SNOOZED("snoozed", "Snoozed"),
-    DELEGATED("delegated", "Delegated"),
+enum class InboxTab(val statuses: List<String>, val label: String) {
+    NEW(listOf("new"), "New"),
+    SNOOZED(listOf("snoozed"), "Snoozed"),
+    DELEGATED(listOf("delegated"), "Delegated"),
+    /** Terminal alerts — the two settled states, `act` and `dismiss`, read together as one history. */
+    HISTORY(listOf("acted", "dismissed"), "History"),
 }
 
 data class InboxUiState(
@@ -24,15 +28,33 @@ data class InboxUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val error: String? = null,
+
+    /** This account's configured agents, to filter the list by who raised each alert. */
+    val availableAgents: List<AgentProfile> = emptyList(),
+    /** `null` means no filter — every agent (and alerts with none). */
+    val agentFilter: String? = null,
 )
 
-class InboxViewModel(private val repo: AlertsRepository) : ViewModel() {
+class InboxViewModel(
+    private val repo: AlertsRepository,
+    private val authRepository: AuthRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InboxUiState())
     val uiState: StateFlow<InboxUiState> = _uiState.asStateFlow()
 
     init {
         load(showSpinner = true)
+        viewModelScope.launch {
+            // Best-effort — a failed fetch just means no filter row, same as the
+            // agent picker elsewhere.
+            try {
+                val agents = authRepository.getAgents().agents
+                _uiState.update { it.copy(availableAgents = agents) }
+            } catch (_: Exception) {
+                // no filter row
+            }
+        }
     }
 
     /** Called on app-foreground and pull-to-refresh — api-contract.md §5, no live stream. */
@@ -40,6 +62,11 @@ class InboxViewModel(private val repo: AlertsRepository) : ViewModel() {
 
     fun selectTab(tab: InboxTab) {
         _uiState.update { it.copy(activeTab = tab) }
+        load(showSpinner = true)
+    }
+
+    fun selectAgentFilter(agent: String?) {
+        _uiState.update { it.copy(agentFilter = agent) }
         load(showSpinner = true)
     }
 
@@ -69,7 +96,8 @@ class InboxViewModel(private val repo: AlertsRepository) : ViewModel() {
             _uiState.update { it.copy(isLoading = showSpinner, isRefreshing = isPullToRefresh) }
             try {
                 val tab = _uiState.value.activeTab
-                val alerts = repo.listAlerts(status = tab.effectiveStatus)
+                val agentFilter = _uiState.value.agentFilter
+                val alerts = repo.listAlerts(statuses = tab.statuses, agent = agentFilter)
                 _uiState.update { it.copy(alerts = alerts, isLoading = false, isRefreshing = false, error = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, isRefreshing = false, error = e.friendlyMessage()) }

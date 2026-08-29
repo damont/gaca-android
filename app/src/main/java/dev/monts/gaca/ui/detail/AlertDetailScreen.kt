@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.ui.inbox.severityColors
 import dev.monts.gaca.ui.theme.BorderColor
@@ -181,6 +182,19 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
             }
         }
 
+        if (state.conversationLoading || state.conversation.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("CONVERSATION", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+                if (state.conversationLoading) {
+                    CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.conversation.forEach { message -> ConversationBubble(message) }
+                    }
+                }
+            }
+        }
+
         // Only worth showing when there's an actual choice to make — a
         // single configured agent needs no picker.
         if (state.agents.size > 1) {
@@ -296,6 +310,28 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** One turn of a delegated alert's session — the agent's own replies right-aligned,
+ * everything else (the user's instruction, tool activity) left-aligned. */
+@Composable
+private fun ConversationBubble(message: ConversationMessage) {
+    val fromAgent = message.role == "assistant"
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (fromAgent) Arrangement.End else Arrangement.Start) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (fromAgent) SuggestBackground else ChipBackground)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(
+                message.role.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelSmall,
+                color = TextMeta,
+            )
+            Text(message.content, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+        }
     }
 }
 
