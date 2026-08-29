@@ -1,6 +1,7 @@
 package dev.monts.gaca.data.remote
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -26,11 +27,23 @@ interface GacaApi {
     @GET("auth/me")
     suspend fun me(): UserResponse
 
-    @GET("auth/agent-config")
-    suspend fun getAgentConfig(): AgentConfigOut
+    @GET("auth/agents")
+    suspend fun getAgents(): AgentsDto
 
-    @PUT("auth/agent-config")
-    suspend fun setAgentConfig(@Body body: AgentConfigUpdate): AgentConfigOut
+    @PUT("auth/agent-host")
+    suspend fun setAgentHost(@Body body: AgentHostUpdateRequest): AgentsDto
+
+    @POST("auth/agents")
+    suspend fun addAgent(@Body body: AgentCreateRequest): AgentsDto
+
+    @PUT("auth/agents/{name}")
+    suspend fun updateAgent(@Path("name") name: String, @Body body: AgentUpdateRequest): AgentsDto
+
+    @DELETE("auth/agents/{name}")
+    suspend fun removeAgent(@Path("name") name: String): AgentsDto
+
+    @POST("auth/agents/{name}/default")
+    suspend fun setDefaultAgent(@Path("name") name: String): AgentsDto
 
     @GET("alerts")
     suspend fun listAlerts(

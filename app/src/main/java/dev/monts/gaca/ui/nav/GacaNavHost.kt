@@ -119,7 +119,9 @@ fun GacaNavHost(
         ) { backStackEntry ->
             val alertId = backStackEntry.arguments?.getString("alertId").orEmpty()
             val vm = viewModel<AlertDetailViewModel>(
-                factory = viewModelFactory { initializer { AlertDetailViewModel(alertId, container.alertsRepository) } },
+                factory = viewModelFactory {
+                    initializer { AlertDetailViewModel(alertId, container.alertsRepository, container.authRepository) }
+                },
             )
             AlertDetailScreen(vm, onBack = { navController.popBackStack() })
         }

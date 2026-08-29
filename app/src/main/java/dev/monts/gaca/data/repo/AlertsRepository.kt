@@ -28,8 +28,12 @@ class AlertsRepository(private val api: GacaApi) {
     suspend fun snooze(id: String, untilIso: String): Alert =
         api.snoozeAlert(id, AlertSnoozeRequest(untilIso)).toDomain()
 
-    suspend fun delegate(id: String, instruction: String?, suggestedActionIndex: Int?): Alert =
-        api.delegateAlert(id, AlertDelegateRequest(instruction, suggestedActionIndex)).toDomain()
+    suspend fun delegate(
+        id: String,
+        instruction: String?,
+        suggestedActionIndex: Int?,
+        agent: String? = null,
+    ): Alert = api.delegateAlert(id, AlertDelegateRequest(instruction, suggestedActionIndex, agent)).toDomain()
 }
 
 /** api-contract.md §6: a 409 means the alert moved underneath you — refetch and re-render, don't retry the action. */
