@@ -1,6 +1,7 @@
 package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.remote.AlertDto
+import dev.monts.gaca.data.remote.MessageDto
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -56,6 +57,16 @@ fun AlertDto.toDomain(): Alert = Alert(
     suggestedActions = suggestedActions.map { SuggestedAction(it.label, it.prompt) },
     dataRows = data.entries.map { (key, value) -> key to renderJsonValue(value) },
 )
+
+/** One turn in a delegated alert's session transcript — the "back and forth" with the agent. */
+data class ConversationMessage(
+    val id: String,
+    val role: String,
+    val content: String,
+    val createdAt: String,
+)
+
+fun MessageDto.toDomain(): ConversationMessage = ConversationMessage(id, role, content, createdAt)
 
 /** `data` is arbitrary JSON from whatever posted the alert — render it, never assume its shape. */
 private fun renderJsonValue(element: kotlinx.serialization.json.JsonElement): String = when (element) {

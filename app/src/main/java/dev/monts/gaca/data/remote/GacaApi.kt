@@ -45,10 +45,14 @@ interface GacaApi {
     @POST("auth/agents/{name}/default")
     suspend fun setDefaultAgent(@Path("name") name: String): AgentsDto
 
+    @POST("alerts")
+    suspend fun createAlert(@Body body: AlertCreateRequest): AlertDto
+
     @GET("alerts")
     suspend fun listAlerts(
         @Query("status") statuses: List<String>? = null,
         @Query("severity") severities: List<String>? = null,
+        @Query("agent") agents: List<String>? = null,
         @Query("limit") limit: Int = 50,
     ): AlertListDto
 
@@ -66,6 +70,9 @@ interface GacaApi {
 
     @POST("alerts/{id}/delegate")
     suspend fun delegateAlert(@Path("id") id: String, @Body body: AlertDelegateRequest): AlertDto
+
+    @GET("sessions/{id}")
+    suspend fun getSession(@Path("id") id: String): SessionDetailDto
 
     @POST("push/register")
     suspend fun registerPushToken(@Body body: PushTokenRegisterRequest)

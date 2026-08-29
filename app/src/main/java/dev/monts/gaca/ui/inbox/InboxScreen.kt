@@ -2,6 +2,7 @@ package dev.monts.gaca.ui.inbox
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +19,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,23 +64,29 @@ import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
 
+/** Legal per api-contract.md §3's transition table: `delegated` and the two
+ * terminal states only settle on their own, so a swipe there would just 409. */
+private fun InboxTab.isSwipeTriageable(): Boolean = this == InboxTab.NEW || this == InboxTab.SNOOZED
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxScreen(
     viewModel: InboxViewModel,
     onOpenAlert: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onNewDelegation: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    Column(
+    Box(
         Modifier
             .fillMaxSize()
             .background(PageBackground) // paints edge-to-edge, behind the status/nav bars
             .windowInsetsPadding(WindowInsets.systemBars), // ...while content stays clear of them
     ) {
+    Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp, top = 20.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -107,11 +117,23 @@ fun InboxScreen(
         }
 
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             InboxTab.entries.forEach { tab ->
                 TabPill(tab.label, tab == state.activeTab) { viewModel.selectTab(tab) }
+            }
+        }
+
+        if (state.availableAgents.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TabPill("All agents", state.agentFilter == null) { viewModel.selectAgentFilter(null) }
+                state.availableAgents.forEach { agent ->
+                    TabPill(agent.name, state.agentFilter == agent.name) { viewModel.selectAgentFilter(agent.name) }
+                }
             }
         }
 
@@ -143,12 +165,16 @@ fun InboxScreen(
                 } else {
                     items(state.alerts, key = { it.id }) { alert ->
                         key(alert.id) {
-                            SwipeableAlertRow(
-                                alert = alert,
-                                onTap = { onOpenAlert(alert.id) },
-                                onDismissed = { viewModel.dismiss(alert.id) },
-                                onActed = { viewModel.act(alert.id) },
-                            )
+                            if (state.activeTab.isSwipeTriageable()) {
+                                SwipeableAlertRow(
+                                    alert = alert,
+                                    onTap = { onOpenAlert(alert.id) },
+                                    onDismissed = { viewModel.dismiss(alert.id) },
+                                    onActed = { viewModel.act(alert.id) },
+                                )
+                            } else {
+                                AlertRow(alert = alert, onTap = { onOpenAlert(alert.id) })
+                            }
                         }
                     }
                 }
@@ -163,6 +189,16 @@ fun InboxScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
+        }
+    }
+
+        FloatingActionButton(
+            onClick = onNewDelegation,
+            modifier = Modifier.align(Alignment.BottomStart).padding(22.dp),
+            containerColor = HeaderAccent,
+            contentColor = OnAccent,
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "Start a delegation")
         }
     }
 }

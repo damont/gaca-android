@@ -6,13 +6,14 @@ import dev.monts.gaca.data.repo.Alert
 import dev.monts.gaca.data.repo.AgentProfile
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
+import dev.monts.gaca.data.repo.ConversationMessage
+import dev.monts.gaca.data.repo.delegateErrorMessage
 import dev.monts.gaca.util.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -36,6 +37,11 @@ data class AlertDetailUiState(
      * shown when there's more than one, so a single-agent account sees no extra UI. */
     val agents: List<AgentProfile> = emptyList(),
     val selectedAgent: String? = null,
+
+    /** The back-and-forth with the agent, once this alert has been delegated
+     * (`alert.sessionId != null`). Empty and not loading just means never delegated. */
+    val conversation: List<ConversationMessage> = emptyList(),
+    val conversationLoading: Boolean = false,
 )
 
 class AlertDetailViewModel(
@@ -73,6 +79,16 @@ class AlertDetailViewModel(
             } catch (_: Exception) {
                 // no picker — see comment above
             }
+
+            val sessionId = alert.sessionId ?: return@launch
+            _uiState.update { it.copy(conversationLoading = true) }
+            try {
+                val conversation = repo.getConversation(sessionId)
+                _uiState.update { it.copy(conversation = conversation, conversationLoading = false) }
+            } catch (_: Exception) {
+                // best-effort, same as the agent picker above — the alert itself already loaded fine
+                _uiState.update { it.copy(conversationLoading = false) }
+            }
         }
     }
 
@@ -108,7 +124,7 @@ class AlertDetailViewModel(
     }
 
     fun pickSuggestedAction(index: Int) = resolve(
-        onError = ::delegateErrorMessage,
+        onError = Throwable::delegateErrorMessage,
     ) {
         repo.delegate(alertId, instruction = null, suggestedActionIndex = index, agent = _uiState.value.selectedAgent)
         "Sent to Hermes — new session starting"
@@ -117,19 +133,11 @@ class AlertDetailViewModel(
     fun sendDelegate() {
         val text = _uiState.value.delegateText.trim()
         if (text.isEmpty()) return
-        resolve(onError = ::delegateErrorMessage) {
+        resolve(onError = Throwable::delegateErrorMessage) {
             repo.delegate(alertId, instruction = text, suggestedActionIndex = null, agent = _uiState.value.selectedAgent)
             "Sent to Hermes — new session starting"
         }
     }
-
-    /** api-contract.md §6: a 400 on /delegate means this account has no agent configured yet. */
-    private fun delegateErrorMessage(e: Throwable): String =
-        if (e is HttpException && e.code() == 400) {
-            "Set up your agent in the web app's profile page first, then try delegating again."
-        } else {
-            e.friendlyMessage()
-        }
 
     fun dismiss() = resolve {
         val note = _uiState.value.noteText.ifBlank { null }
