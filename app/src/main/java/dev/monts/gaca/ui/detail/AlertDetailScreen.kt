@@ -144,6 +144,21 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
             Text(alert.body, style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
         }
 
+        // Whatever the run (or a person) last said about this alert — the
+        // agent's own output on a `completed` run, the error on a failed
+        // one, or a note left when it was acted/dismissed. Also present in
+        // CONVERSATION below when there's a session, but that's the full
+        // transcript; this is the one-line version worth seeing immediately.
+        if (!alert.resolutionNote.isNullOrBlank()) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ChipBackground).padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text("NOTE", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+                Text(alert.resolutionNote, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            }
+        }
+
         if (alert.dataRows.isNotEmpty()) {
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(ChipBackground).padding(14.dp),

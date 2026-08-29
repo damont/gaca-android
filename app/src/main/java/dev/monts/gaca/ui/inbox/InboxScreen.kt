@@ -65,7 +65,8 @@ import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
 
 /** Legal per api-contract.md §3's transition table: `delegated` and the two
- * terminal states only settle on their own, so a swipe there would just 409. */
+ * terminal states only settle on their own, so a swipe there would just 409.
+ * NEW covers both `new` and `completed` — both are triageable the same way. */
 private fun InboxTab.isSwipeTriageable(): Boolean = this == InboxTab.NEW || this == InboxTab.SNOOZED
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,13 +315,27 @@ private fun AlertRow(alert: Alert, onTap: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(4.dp))
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White.copy(alpha = 0.5f))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-            ) {
-                Text(alert.kind, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.5f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text(alert.kind, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                }
+                // A `completed` alert sits in the same tab as `new` ones —
+                // this is what tells them apart at a glance.
+                if (alert.effectiveStatus == "completed") {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(dotColor.copy(alpha = 0.18f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text("Hermes replied", style = MaterialTheme.typography.labelSmall, color = dotColor)
+                    }
+                }
             }
         }
     }
