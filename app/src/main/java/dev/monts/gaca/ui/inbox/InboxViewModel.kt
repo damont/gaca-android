@@ -15,7 +15,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class InboxTab(val statuses: List<String>, val label: String) {
-    NEW(listOf("new"), "New"),
+    /** `completed` — Hermes finishing a delegated run — belongs here, not in
+     * History: finishing isn't the same as being closed out, and it's still
+     * triageable exactly like `new` (see api-contract.md §3). */
+    NEW(listOf("new", "completed"), "Needs Attention"),
     SNOOZED(listOf("snoozed"), "Snoozed"),
     DELEGATED(listOf("delegated"), "Delegated"),
     /** Terminal alerts — the two settled states, `act` and `dismiss`, read together as one history. */
