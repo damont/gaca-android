@@ -20,6 +20,7 @@ data class AlertDto(
     @SerialName("user_id") val userId: String,
     @SerialName("created_at") val createdAt: String,
     val source: String,
+    val agent: String? = null,
     val kind: String,
     val severity: String,
     val title: String,
@@ -55,6 +56,7 @@ data class AlertSnoozeRequest(
 data class AlertDelegateRequest(
     val instruction: String? = null,
     @SerialName("suggested_action_index") val suggestedActionIndex: Int? = null,
+    val agent: String? = null,
 )
 
 @Serializable
@@ -88,18 +90,40 @@ data class UserResponse(
     val email: String,
 )
 
-/** Body for PUT /auth/agent-config — both fields required together, no partial update. */
+/** Body for PUT /auth/agent-host — the scheme+host shared by every agent below. */
 @Serializable
-data class AgentConfigUpdate(
-    @SerialName("agent_base_url") val agentBaseUrl: String,
-    @SerialName("agent_api_key") val agentApiKey: String,
+data class AgentHostUpdateRequest(
+    val host: String,
+)
+
+/** Body for POST /auth/agents. */
+@Serializable
+data class AgentCreateRequest(
+    val name: String,
+    val port: Int,
+    @SerialName("api_key") val apiKey: String,
+)
+
+/** Body for PUT /auth/agents/{name} — both fields required together, no partial update. */
+@Serializable
+data class AgentUpdateRequest(
+    val port: Int,
+    @SerialName("api_key") val apiKey: String,
 )
 
 /** Never carries the key back — same rule as a password. */
 @Serializable
-data class AgentConfigOut(
-    @SerialName("agent_base_url") val agentBaseUrl: String? = null,
-    @SerialName("agent_configured") val agentConfigured: Boolean,
+data class AgentDto(
+    val name: String,
+    val port: Int,
+    @SerialName("is_default") val isDefault: Boolean,
+)
+
+/** GET /auth/agents and every mutating agent endpoint return this — the full picture. */
+@Serializable
+data class AgentsDto(
+    val host: String? = null,
+    val agents: List<AgentDto> = emptyList(),
 )
 
 @Serializable

@@ -1,7 +1,10 @@
 package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.local.TokenStore
-import dev.monts.gaca.data.remote.AgentConfigUpdate
+import dev.monts.gaca.data.remote.AgentCreateRequest
+import dev.monts.gaca.data.remote.AgentHostUpdateRequest
+import dev.monts.gaca.data.remote.AgentUpdateRequest
+import dev.monts.gaca.data.remote.AgentsDto
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.data.remote.GoogleLoginRequest
 import dev.monts.gaca.data.remote.RegisterRequest
@@ -13,7 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class User(val id: String, val name: String, val email: String)
 
-data class AgentConfig(val baseUrl: String?, val configured: Boolean)
+data class AgentProfile(val name: String, val port: Int, val isDefault: Boolean)
+
+data class AgentsConfig(val host: String?, val agents: List<AgentProfile>)
+
+private fun AgentsDto.toDomain(): AgentsConfig =
+    AgentsConfig(host, agents.map { AgentProfile(it.name, it.port, it.isDefault) })
 
 data class AuthUiState(
     val user: User? = null,
@@ -89,15 +97,21 @@ class AuthRepository(
         _state.value = _state.value.copy(error = null)
     }
 
-    /** Whether this account has pointed GACA at its own agent yet — see api-contract.md §6, §10. */
-    suspend fun getAgentConfig(): AgentConfig {
-        val out = api.getAgentConfig()
-        return AgentConfig(out.agentBaseUrl, out.agentConfigured)
-    }
+    /** This account's shared host + every agent configured under it — see api-contract.md §6, §10. */
+    suspend fun getAgents(): AgentsConfig = api.getAgents().toDomain()
+
+    suspend fun setAgentHost(host: String): AgentsConfig = api.setAgentHost(AgentHostUpdateRequest(host)).toDomain()
+
+    /** The first agent added becomes the default automatically. */
+    suspend fun addAgent(name: String, port: Int, apiKey: String): AgentsConfig =
+        api.addAgent(AgentCreateRequest(name, port, apiKey)).toDomain()
 
     /** Both fields required together — there's no partial update on this endpoint. */
-    suspend fun setAgentConfig(baseUrl: String, apiKey: String): AgentConfig {
-        val out = api.setAgentConfig(AgentConfigUpdate(baseUrl, apiKey))
-        return AgentConfig(out.agentBaseUrl, out.agentConfigured)
-    }
+    suspend fun updateAgent(name: String, port: Int, apiKey: String): AgentsConfig =
+        api.updateAgent(name, AgentUpdateRequest(port, apiKey)).toDomain()
+
+    /** Rejected by the API if `name` is the default and other agents remain. */
+    suspend fun removeAgent(name: String): AgentsConfig = api.removeAgent(name).toDomain()
+
+    suspend fun setDefaultAgent(name: String): AgentsConfig = api.setDefaultAgent(name).toDomain()
 }

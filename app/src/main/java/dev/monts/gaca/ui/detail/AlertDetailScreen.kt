@@ -181,6 +181,35 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
             }
         }
 
+        // Only worth showing when there's an actual choice to make — a
+        // single configured agent needs no picker.
+        if (state.agents.size > 1) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.agents.forEach { agent ->
+                        val selected = agent.name == state.selectedAgent
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (selected) HeaderAccent else ChipBackground)
+                                .clickable { viewModel.selectAgent(agent.name) }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                agent.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (selected) OnAccent else TextSecondary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (state.showDelegateInput) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(

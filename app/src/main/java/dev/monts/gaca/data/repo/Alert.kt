@@ -22,6 +22,9 @@ data class Alert(
     val body: String?,
     val kind: String,
     val source: String,
+    /** Which Hermes agent posted this, if the poster said — advisory, not a
+     * guarantee it matches a currently configured agent name. */
+    val agent: String?,
     val severity: Severity,
     val createdAt: String,
     /** Filter and display on this, never `status` — api-contract.md §3. */
@@ -39,6 +42,7 @@ fun AlertDto.toDomain(): Alert = Alert(
     body = body,
     kind = kind,
     source = source,
+    agent = agent,
     severity = when (severity) {
         "urgent" -> Severity.URGENT
         "warn" -> Severity.WARN

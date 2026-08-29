@@ -3,7 +3,9 @@ package dev.monts.gaca.ui.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.repo.Alert
+import dev.monts.gaca.data.repo.AgentProfile
 import dev.monts.gaca.data.repo.AlertsRepository
+import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.util.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,11 +31,17 @@ data class AlertDetailUiState(
     val toast: String? = null,
     /** One-shot: true once the alert has been resolved and the screen should pop back to the inbox. */
     val done: Boolean = false,
+
+    /** This account's configured agents, for the "which agent handles this" picker. Only
+     * shown when there's more than one, so a single-agent account sees no extra UI. */
+    val agents: List<AgentProfile> = emptyList(),
+    val selectedAgent: String? = null,
 )
 
 class AlertDetailViewModel(
     private val alertId: String,
     private val repo: AlertsRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertDetailUiState())
@@ -41,14 +49,34 @@ class AlertDetailViewModel(
 
     init {
         viewModelScope.launch {
-            try {
+            val alert = try {
                 val alert = repo.getAlert(alertId)
                 _uiState.update { it.copy(alert = alert, isLoading = false) }
+                alert
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.friendlyMessage()) }
+                return@launch
+            }
+
+            // Best-effort, and sequenced after the alert so the "prefer the
+            // alert's own agent" match below has it to compare against — an
+            // account with no agent configured, or a request that fails,
+            // just means no picker; the delegate call itself is still what
+            // surfaces "you need to set one up".
+            try {
+                val agents = authRepository.getAgents().agents
+                val preferred = when {
+                    alert.agent != null && agents.any { it.name == alert.agent } -> alert.agent
+                    else -> agents.firstOrNull { it.isDefault }?.name
+                }
+                _uiState.update { it.copy(agents = agents, selectedAgent = preferred) }
+            } catch (_: Exception) {
+                // no picker — see comment above
             }
         }
     }
+
+    fun selectAgent(name: String) = _uiState.update { it.copy(selectedAgent = name) }
 
     fun toggleSnooze() = _uiState.update {
         it.copy(showSnoozeOptions = !it.showSnoozeOptions, showDelegateInput = false)
@@ -82,7 +110,7 @@ class AlertDetailViewModel(
     fun pickSuggestedAction(index: Int) = resolve(
         onError = ::delegateErrorMessage,
     ) {
-        repo.delegate(alertId, instruction = null, suggestedActionIndex = index)
+        repo.delegate(alertId, instruction = null, suggestedActionIndex = index, agent = _uiState.value.selectedAgent)
         "Sent to Hermes — new session starting"
     }
 
@@ -90,7 +118,7 @@ class AlertDetailViewModel(
         val text = _uiState.value.delegateText.trim()
         if (text.isEmpty()) return
         resolve(onError = ::delegateErrorMessage) {
-            repo.delegate(alertId, instruction = text, suggestedActionIndex = null)
+            repo.delegate(alertId, instruction = text, suggestedActionIndex = null, agent = _uiState.value.selectedAgent)
             "Sent to Hermes — new session starting"
         }
     }

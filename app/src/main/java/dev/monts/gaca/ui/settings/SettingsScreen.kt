@@ -1,6 +1,7 @@
 package dev.monts.gaca.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.monts.gaca.data.repo.AgentProfile
+import dev.monts.gaca.ui.theme.BorderColor
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
@@ -47,6 +50,7 @@ import dev.monts.gaca.ui.theme.SeverityWarnBg
 import dev.monts.gaca.ui.theme.SeverityWarnDot
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
+import dev.monts.gaca.ui.theme.TextSecondary
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
@@ -104,14 +108,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         Spacer(Modifier.height(32.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("YOUR AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
-            if (state.agentLoading) {
+            Text("YOUR AGENTS", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
+            if (state.agentsLoading) {
                 CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
             } else {
-                val (dot, bg) = if (state.agentConfigured) HeaderAccent to ChipBackground else SeverityWarnDot to SeverityWarnBg
+                val configured = state.agents.isNotEmpty()
+                val (dot, bg) = if (configured) HeaderAccent to ChipBackground else SeverityWarnDot to SeverityWarnBg
                 Box(Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 8.dp, vertical = 2.dp)) {
                     Text(
-                        if (state.agentConfigured) "Connected" else "Not set up",
+                        if (configured) "${state.agents.size} configured" else "Not set up",
                         style = MaterialTheme.typography.labelSmall,
                         color = dot,
                     )
@@ -120,56 +125,93 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "There's no shared agent — each account points GACA at its own Hermes. This is what \"delegate to Hermes\" uses.",
+            "There's no shared agent — each account points GACA at its own Hermes, possibly several named agents sharing one host. Sessions and delegated alerts run against one of these.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMeta,
         )
-        if (state.agentConfigured && !state.agentCurrentBaseUrl.isNullOrBlank()) {
-            Spacer(Modifier.height(4.dp))
-            Text("Currently: ${state.agentCurrentBaseUrl}", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-        }
+
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
-            value = state.agentBaseUrlInput,
-            onValueChange = viewModel::setAgentBaseUrlInput,
+            value = state.hostInput,
+            onValueChange = viewModel::setHostInput,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Agent base URL") },
+            label = { Text("Host") },
+            placeholder = { Text("http://your-hermes-box") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        )
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, BorderColor, RoundedCornerShape(10.dp))
+                .clickable(enabled = !state.hostSaving, onClick = viewModel::saveHost)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            if (state.hostSaving) {
+                CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+            } else {
+                Text("Save host", style = MaterialTheme.typography.labelMedium, color = TextPrimary)
+            }
+        }
+
+        val agentsErrorText = state.agentsError
+        if (agentsErrorText != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(agentsErrorText, style = MaterialTheme.typography.bodySmall, color = SeverityUrgentDot)
+        }
+
+        Spacer(Modifier.height(16.dp))
+        state.agents.forEach { agent ->
+            AgentRow(
+                agent = agent,
+                state = state,
+                viewModel = viewModel,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text("ADD AN AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = state.newAgentName,
+            onValueChange = viewModel::setNewAgentName,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Name") },
+            placeholder = { Text("toolshed") },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
-            value = state.agentApiKeyInput,
-            onValueChange = viewModel::setAgentApiKeyInput,
+            value = state.newAgentPortInput,
+            onValueChange = viewModel::setNewAgentPortInput,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Agent API key") },
+            label = { Text("Port") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = state.newAgentApiKeyInput,
+            onValueChange = viewModel::setNewAgentApiKeyInput,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("API key") },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         )
-        Text(
-            "The key is never shown back once saved — to change either field, re-enter both.",
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMeta,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        val agentErrorText = state.agentError
-        if (agentErrorText != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(agentErrorText, style = MaterialTheme.typography.bodySmall, color = SeverityUrgentDot)
-        }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         Box(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(HeaderAccent)
-                .clickable(enabled = !state.agentSaving, onClick = viewModel::saveAgentConfig)
+                .clickable(enabled = !state.newAgentSaving, onClick = viewModel::addAgent)
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (state.agentSaving) {
+            if (state.newAgentSaving) {
                 CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
             } else {
-                Text(if (state.agentSaved) "Saved" else "Save", style = MaterialTheme.typography.labelLarge, color = OnAccent)
+                Text("Add agent", style = MaterialTheme.typography.labelLarge, color = OnAccent)
             }
         }
 
@@ -187,5 +229,100 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** One row per configured agent — either its summary (name, port, default badge,
+ * actions) or, while `state.editingAgentName == agent.name`, its edit form. */
+@Composable
+private fun AgentRow(agent: AgentProfile, state: SettingsUiState, viewModel: SettingsViewModel) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+    ) {
+        if (state.editingAgentName == agent.name) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(agent.name, style = MaterialTheme.typography.labelLarge, color = TextPrimary, modifier = Modifier.weight(1f))
+                Text(
+                    "Cancel",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMeta,
+                    modifier = Modifier.clickable(onClick = viewModel::cancelEditingAgent),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.editPortInput,
+                onValueChange = viewModel::setEditPortInput,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Port") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.editApiKeyInput,
+                onValueChange = viewModel::setEditApiKeyInput,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("API key") },
+                placeholder = { Text("re-enter to change") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(HeaderAccent)
+                    .clickable(enabled = !state.editSaving, onClick = viewModel::saveEditedAgent)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                if (state.editSaving) {
+                    CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Save", style = MaterialTheme.typography.labelMedium, color = OnAccent)
+                }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(agent.name, style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                        if (agent.isDefault) {
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(ChipBackground).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                                Text("default", style = MaterialTheme.typography.labelSmall, color = HeaderAccent)
+                            }
+                        }
+                    }
+                    Text("port ${agent.port}", style = MaterialTheme.typography.bodySmall, color = TextMeta)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (!agent.isDefault) {
+                    Text(
+                        "Make default",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                        modifier = Modifier.clickable { viewModel.setDefaultAgent(agent.name) },
+                    )
+                }
+                Text(
+                    "Edit",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                    modifier = Modifier.clickable { viewModel.startEditingAgent(agent) },
+                )
+                Text(
+                    "Remove",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SeverityUrgentDot,
+                    modifier = Modifier.clickable { viewModel.removeAgent(agent.name) },
+                )
+            }
+        }
     }
 }
