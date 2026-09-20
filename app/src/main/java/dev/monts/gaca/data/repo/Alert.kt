@@ -23,9 +23,9 @@ data class Alert(
     val body: String?,
     val kind: String,
     val source: String,
-    /** Which Hermes agent posted this, if the poster said — advisory, not a
-     * guarantee it matches a currently configured agent name. */
-    val agent: String?,
+    /** Which crew member posted this, if the poster said — advisory, not a
+     * guarantee it matches a currently configured crew member's name. */
+    val crew: String?,
     val severity: Severity,
     val createdAt: String,
     /** Filter and display on this, never `status` — api-contract.md §3. */
@@ -43,7 +43,7 @@ fun AlertDto.toDomain(): Alert = Alert(
     body = body,
     kind = kind,
     source = source,
-    agent = agent,
+    crew = crew,
     severity = when (severity) {
         "urgent" -> Severity.URGENT
         "warn" -> Severity.WARN
@@ -58,7 +58,7 @@ fun AlertDto.toDomain(): Alert = Alert(
     dataRows = data.entries.map { (key, value) -> key to renderJsonValue(value) },
 )
 
-/** One turn in a delegated alert's session transcript — the "back and forth" with the agent. */
+/** One turn in a delegated alert's session transcript — the "back and forth" with the crew member. */
 data class ConversationMessage(
     val id: String,
     val role: String,

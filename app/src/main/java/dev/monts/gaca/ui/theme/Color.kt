@@ -24,3 +24,11 @@ val SeverityWarnDot = Color(0xFFC6A670)
 val SeverityWarnBg = Color(0xFFECE1D0)
 val SeverityInfoDot = Color(0xFFABB6C1)
 val SeverityInfoBg = Color(0xFFE3E8EE)
+
+/** A crew member's own color comes over the wire as a hex string (CrewMember.color) —
+ * the server is the one source of truth for it, so the client just parses and renders it. */
+fun crewColor(hex: String): Color = Color(android.graphics.Color.parseColor(hex))
+
+/** A low-alpha wash of a crew member's color, for a chip/pill background — the
+ * same trick as the existing `kind` chip's translucent white, just tinted per crew. */
+fun crewChipTint(hex: String): Color = crewColor(hex).copy(alpha = 0.16f)

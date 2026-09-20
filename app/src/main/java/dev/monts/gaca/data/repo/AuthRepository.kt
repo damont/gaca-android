@@ -1,10 +1,9 @@
 package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.local.TokenStore
-import dev.monts.gaca.data.remote.AgentCreateRequest
-import dev.monts.gaca.data.remote.AgentHostUpdateRequest
-import dev.monts.gaca.data.remote.AgentUpdateRequest
-import dev.monts.gaca.data.remote.AgentsDto
+import dev.monts.gaca.data.remote.CrewDto
+import dev.monts.gaca.data.remote.CrewMemberCreateRequest
+import dev.monts.gaca.data.remote.CrewMemberUpdateRequest
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.data.remote.GoogleLoginRequest
 import dev.monts.gaca.data.remote.RegisterRequest
@@ -16,12 +15,16 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class User(val id: String, val name: String, val email: String)
 
-data class AgentProfile(val name: String, val port: Int, val isDefault: Boolean)
+/** `color` is a hex string, always present, auto-assigned server-side from a fixed
+ * palette unless the caller supplies one — api-contract.md §2. Render it as-is
+ * everywhere this crew member shows up: avatar, chat accent, filter chips, its own
+ * message bubbles, a settings-row border. */
+data class CrewMember(val name: String, val port: Int, val color: String, val isDefault: Boolean)
 
-data class AgentsConfig(val host: String?, val agents: List<AgentProfile>)
+data class CrewConfig(val host: String?, val crew: List<CrewMember>)
 
-private fun AgentsDto.toDomain(): AgentsConfig =
-    AgentsConfig(host, agents.map { AgentProfile(it.name, it.port, it.isDefault) })
+private fun CrewDto.toDomain(): CrewConfig =
+    CrewConfig(host, crew.map { CrewMember(it.name, it.port, it.color, it.isDefault) })
 
 data class AuthUiState(
     val user: User? = null,
@@ -97,21 +100,22 @@ class AuthRepository(
         _state.value = _state.value.copy(error = null)
     }
 
-    /** This account's shared host + every agent configured under it — see api-contract.md §6, §10. */
-    suspend fun getAgents(): AgentsConfig = api.getAgents().toDomain()
+    /** This account's shared host + every crew member configured under it — see api-contract.md §2, §10.
+     * The host itself is owned by the /agent resource now (connect/move), not managed here — this
+     * account already has an agent connected, so that step isn't built on Android yet. */
+    suspend fun getCrew(): CrewConfig = api.getCrew().toDomain()
 
-    suspend fun setAgentHost(host: String): AgentsConfig = api.setAgentHost(AgentHostUpdateRequest(host)).toDomain()
-
-    /** The first agent added becomes the default automatically. */
-    suspend fun addAgent(name: String, port: Int, apiKey: String): AgentsConfig =
-        api.addAgent(AgentCreateRequest(name, port, apiKey)).toDomain()
+    /** The first crew member added becomes the default automatically. `color` is
+     * optional — omit it (null) to let the server auto-assign one. */
+    suspend fun addCrewMember(name: String, port: Int, apiKey: String, color: String? = null): CrewConfig =
+        api.addCrewMember(CrewMemberCreateRequest(name, port, apiKey, color)).toDomain()
 
     /** Both fields required together — there's no partial update on this endpoint. */
-    suspend fun updateAgent(name: String, port: Int, apiKey: String): AgentsConfig =
-        api.updateAgent(name, AgentUpdateRequest(port, apiKey)).toDomain()
+    suspend fun updateCrewMember(name: String, port: Int, apiKey: String): CrewConfig =
+        api.updateCrewMember(name, CrewMemberUpdateRequest(port, apiKey)).toDomain()
 
-    /** Rejected by the API if `name` is the default and other agents remain. */
-    suspend fun removeAgent(name: String): AgentsConfig = api.removeAgent(name).toDomain()
+    /** Rejected by the API if `name` is the default and other crew members remain. */
+    suspend fun removeCrewMember(name: String): CrewConfig = api.removeCrewMember(name).toDomain()
 
-    suspend fun setDefaultAgent(name: String): AgentsConfig = api.setDefaultAgent(name).toDomain()
+    suspend fun setDefaultCrewMember(name: String): CrewConfig = api.setDefaultCrewMember(name).toDomain()
 }

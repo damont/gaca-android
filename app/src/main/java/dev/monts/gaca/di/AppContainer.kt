@@ -5,9 +5,12 @@ import dev.monts.gaca.data.local.SettingsStore
 import dev.monts.gaca.data.local.TokenStore
 import dev.monts.gaca.data.remote.AuthInterceptor
 import dev.monts.gaca.data.remote.GacaApi
+import dev.monts.gaca.data.remote.SseClient
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.PushRepository
+import dev.monts.gaca.data.repo.SessionsRepository
+import dev.monts.gaca.data.repo.SkillsRepository
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -49,7 +52,13 @@ class AppContainer(context: Context) {
         .build()
         .create(GacaApi::class.java)
 
+    // Same client, same base URL as [api] above — Retrofit doesn't stream, so
+    // the one SSE endpoint (session events) goes over OkHttp directly instead.
+    private val sseClient = SseClient(okHttpClient, baseUrl)
+
     val authRepository = AuthRepository(api, tokenStore)
     val alertsRepository = AlertsRepository(api)
     val pushRepository = PushRepository(api)
+    val sessionsRepository = SessionsRepository(api, sseClient)
+    val skillsRepository = SkillsRepository(api)
 }

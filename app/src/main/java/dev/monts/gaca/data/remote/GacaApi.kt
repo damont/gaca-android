@@ -27,23 +27,23 @@ interface GacaApi {
     @GET("auth/me")
     suspend fun me(): UserResponse
 
-    @GET("auth/agents")
-    suspend fun getAgents(): AgentsDto
+    @GET("crew")
+    suspend fun getCrew(): CrewDto
 
-    @PUT("auth/agent-host")
-    suspend fun setAgentHost(@Body body: AgentHostUpdateRequest): AgentsDto
+    @POST("crew")
+    suspend fun addCrewMember(@Body body: CrewMemberCreateRequest): CrewDto
 
-    @POST("auth/agents")
-    suspend fun addAgent(@Body body: AgentCreateRequest): AgentsDto
+    @PUT("crew/{name}")
+    suspend fun updateCrewMember(@Path("name") name: String, @Body body: CrewMemberUpdateRequest): CrewDto
 
-    @PUT("auth/agents/{name}")
-    suspend fun updateAgent(@Path("name") name: String, @Body body: AgentUpdateRequest): AgentsDto
+    @DELETE("crew/{name}")
+    suspend fun removeCrewMember(@Path("name") name: String): CrewDto
 
-    @DELETE("auth/agents/{name}")
-    suspend fun removeAgent(@Path("name") name: String): AgentsDto
+    @POST("crew/{name}/default")
+    suspend fun setDefaultCrewMember(@Path("name") name: String): CrewDto
 
-    @POST("auth/agents/{name}/default")
-    suspend fun setDefaultAgent(@Path("name") name: String): AgentsDto
+    @GET("crew/{name}/skills")
+    suspend fun getSkills(@Path("name") name: String): List<SkillDto>
 
     @POST("alerts")
     suspend fun createAlert(@Body body: AlertCreateRequest): AlertDto
@@ -52,7 +52,7 @@ interface GacaApi {
     suspend fun listAlerts(
         @Query("status") statuses: List<String>? = null,
         @Query("severity") severities: List<String>? = null,
-        @Query("agent") agents: List<String>? = null,
+        @Query("crew") crew: List<String>? = null,
         @Query("limit") limit: Int = 50,
     ): AlertListDto
 
@@ -71,8 +71,17 @@ interface GacaApi {
     @POST("alerts/{id}/delegate")
     suspend fun delegateAlert(@Path("id") id: String, @Body body: AlertDelegateRequest): AlertDto
 
+    @GET("sessions")
+    suspend fun listSessions(): SessionListDto
+
+    @POST("sessions")
+    suspend fun createSession(@Body body: SessionCreateRequest): SessionDto
+
     @GET("sessions/{id}")
     suspend fun getSession(@Path("id") id: String): SessionDetailDto
+
+    @POST("sessions/{id}/messages")
+    suspend fun postMessage(@Path("id") id: String, @Body body: MessageCreateRequest): MessageAcceptedDto
 
     @POST("push/register")
     suspend fun registerPushToken(@Body body: PushTokenRegisterRequest)
