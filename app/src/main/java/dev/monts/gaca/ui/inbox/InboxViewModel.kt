@@ -3,7 +3,7 @@ package dev.monts.gaca.ui.inbox
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.repo.Alert
-import dev.monts.gaca.data.repo.AgentProfile
+import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.isStaleTransition
@@ -32,10 +32,10 @@ data class InboxUiState(
     val isRefreshing: Boolean = false,
     val error: String? = null,
 
-    /** This account's configured agents, to filter the list by who raised each alert. */
-    val availableAgents: List<AgentProfile> = emptyList(),
-    /** `null` means no filter — every agent (and alerts with none). */
-    val agentFilter: String? = null,
+    /** This account's configured crew, to filter the list by who raised each alert. */
+    val availableCrew: List<CrewMember> = emptyList(),
+    /** `null` means no filter — every crew member (and alerts with none). */
+    val crewFilter: String? = null,
 )
 
 class InboxViewModel(
@@ -50,10 +50,10 @@ class InboxViewModel(
         load(showSpinner = true)
         viewModelScope.launch {
             // Best-effort — a failed fetch just means no filter row, same as the
-            // agent picker elsewhere.
+            // crew picker elsewhere.
             try {
-                val agents = authRepository.getAgents().agents
-                _uiState.update { it.copy(availableAgents = agents) }
+                val crew = authRepository.getCrew().crew
+                _uiState.update { it.copy(availableCrew = crew) }
             } catch (_: Exception) {
                 // no filter row
             }
@@ -68,8 +68,8 @@ class InboxViewModel(
         load(showSpinner = true)
     }
 
-    fun selectAgentFilter(agent: String?) {
-        _uiState.update { it.copy(agentFilter = agent) }
+    fun selectCrewFilter(crew: String?) {
+        _uiState.update { it.copy(crewFilter = crew) }
         load(showSpinner = true)
     }
 
@@ -99,8 +99,8 @@ class InboxViewModel(
             _uiState.update { it.copy(isLoading = showSpinner, isRefreshing = isPullToRefresh) }
             try {
                 val tab = _uiState.value.activeTab
-                val agentFilter = _uiState.value.agentFilter
-                val alerts = repo.listAlerts(statuses = tab.statuses, agent = agentFilter)
+                val crewFilter = _uiState.value.crewFilter
+                val alerts = repo.listAlerts(statuses = tab.statuses, crew = crewFilter)
                 _uiState.update { it.copy(alerts = alerts, isLoading = false, isRefreshing = false, error = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, isRefreshing = false, error = e.friendlyMessage()) }

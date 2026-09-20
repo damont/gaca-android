@@ -44,6 +44,7 @@ import dev.monts.gaca.ui.theme.SeverityUrgentDot
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
+import dev.monts.gaca.ui.theme.crewColor
 
 @Composable
 fun NewDelegationScreen(viewModel: NewDelegationViewModel, onBack: () -> Unit) {
@@ -103,41 +104,47 @@ fun NewDelegationScreen(viewModel: NewDelegationViewModel, onBack: () -> Unit) {
             )
 
             when {
-                state.agentsLoading -> CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                state.agents.isEmpty() -> Text(
-                    "No agents configured yet — set one up in Settings first.",
+                state.crewLoading -> CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                state.crew.isEmpty() -> Text(
+                    "No crew configured yet — set one up in Settings first.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMeta,
                 )
-                state.agents.size == 1 -> Text(
-                    "Sends to ${state.agents.first().name}",
+                state.crew.size == 1 -> Text(
+                    "Sends to ${state.crew.first().name}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMeta,
                 )
                 else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+                    Text("CREW", style = MaterialTheme.typography.labelMedium, color = TextMeta)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.agents.forEach { agent ->
-                            val selected = agent.name == state.selectedAgent
+                        state.crew.forEach { member ->
+                            val selected = member.name == state.selectedCrew
+                            val memberColor = crewColor(member.color)
                             Box(
                                 Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(if (selected) HeaderAccent else ChipBackground)
-                                    .clickable { viewModel.selectAgent(agent.name) }
+                                    .background(if (selected) memberColor else ChipBackground)
+                                    .clickable { viewModel.selectCrew(member.name) }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                             ) {
-                                Text(
-                                    agent.name,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (selected) OnAccent else TextSecondary,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    if (!selected) {
+                                        Box(Modifier.size(7.dp).clip(CircleShape).background(memberColor))
+                                    }
+                                    Text(
+                                        member.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (selected) OnAccent else TextSecondary,
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            val canSend = state.noteText.isNotBlank() && state.selectedAgent != null && !state.sending
+            val canSend = state.noteText.isNotBlank() && state.selectedCrew != null && !state.sending
             Box(
                 Modifier
                     .fillMaxWidth()

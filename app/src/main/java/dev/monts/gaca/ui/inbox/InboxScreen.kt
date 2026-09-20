@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.Alert
+import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
@@ -63,6 +64,8 @@ import dev.monts.gaca.ui.theme.SeverityWarnDot
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
+import dev.monts.gaca.ui.theme.crewChipTint
+import dev.monts.gaca.ui.theme.crewColor
 
 /** Legal per api-contract.md §3's transition table: `delegated` and the two
  * terminal states only settle on their own, so a swipe there would just 409.
@@ -84,8 +87,9 @@ fun InboxScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(PageBackground) // paints edge-to-edge, behind the status/nav bars
-            .windowInsetsPadding(WindowInsets.systemBars), // ...while content stays clear of them
+            .background(PageBackground) // paints edge-to-edge, behind the status bar
+            .windowInsetsPadding(WindowInsets.statusBars), // ...while content stays clear of it —
+            // the bottom nav bar below this screen (GacaNavHost) owns the bottom inset now
     ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -126,17 +130,21 @@ fun InboxScreen(
             }
         }
 
-        if (state.availableAgents.isNotEmpty()) {
+        if (state.availableCrew.isNotEmpty()) {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                TabPill("All agents", state.agentFilter == null) { viewModel.selectAgentFilter(null) }
-                state.availableAgents.forEach { agent ->
-                    TabPill(agent.name, state.agentFilter == agent.name) { viewModel.selectAgentFilter(agent.name) }
+                TabPill("All crew", state.crewFilter == null) { viewModel.selectCrewFilter(null) }
+                state.availableCrew.forEach { member ->
+                    CrewFilterPill(member, state.crewFilter == member.name) { viewModel.selectCrewFilter(member.name) }
                 }
             }
         }
+
+        // Built once per recomposition from the small crew list — cheap, and
+        // lets each row look up its own poster's color by name in O(1).
+        val crewByName = state.availableCrew.associateBy { it.name }
 
         val isEmpty = state.alerts.isEmpty() && !state.isLoading
 
@@ -169,12 +177,13 @@ fun InboxScreen(
                             if (state.activeTab.isSwipeTriageable()) {
                                 SwipeableAlertRow(
                                     alert = alert,
+                                    crewByName = crewByName,
                                     onTap = { onOpenAlert(alert.id) },
                                     onDismissed = { viewModel.dismiss(alert.id) },
                                     onActed = { viewModel.act(alert.id) },
                                 )
                             } else {
-                                AlertRow(alert = alert, onTap = { onOpenAlert(alert.id) })
+                                AlertRow(alert = alert, crewByName = crewByName, onTap = { onOpenAlert(alert.id) })
                             }
                         }
                     }
@@ -221,10 +230,37 @@ private fun TabPill(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** Same idea as [TabPill], but tinted in this crew member's own color instead
+ * of the neutral palette — a solid fill when it's the active filter, a light
+ * wash + dot otherwise, so you can tell crew apart before reading the name. */
+@Composable
+private fun CrewFilterPill(member: CrewMember, active: Boolean, onClick: () -> Unit) {
+    val color = crewColor(member.color)
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (active) color else crewChipTint(member.color))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!active) {
+                Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+            }
+            Text(
+                member.name,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (active) OnAccent else color,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableAlertRow(
     alert: Alert,
+    crewByName: Map<String, CrewMember>,
     onTap: () -> Unit,
     onDismissed: () -> Unit,
     onActed: () -> Unit,
@@ -243,7 +279,7 @@ private fun SwipeableAlertRow(
         state = dismissState,
         backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
     ) {
-        AlertRow(alert = alert, onTap = onTap)
+        AlertRow(alert = alert, crewByName = crewByName, onTap = onTap)
     }
 }
 
@@ -271,8 +307,9 @@ private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
 }
 
 @Composable
-private fun AlertRow(alert: Alert, onTap: () -> Unit) {
+private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: () -> Unit) {
     val (dotColor, cardBg) = severityColors(alert.severity)
+    val poster = alert.crew?.let { crewByName[it] }
     Row(
         Modifier
             .fillMaxWidth()
@@ -323,6 +360,20 @@ private fun AlertRow(alert: Alert, onTap: () -> Unit) {
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(alert.kind, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                }
+                if (poster != null) {
+                    val posterColor = crewColor(poster.color)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(crewChipTint(poster.color))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(posterColor))
+                        Text(poster.name, style = MaterialTheme.typography.labelSmall, color = posterColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
                 }
                 // A `completed` alert sits in the same tab as `new` ones —
                 // this is what tells them apart at a glance.

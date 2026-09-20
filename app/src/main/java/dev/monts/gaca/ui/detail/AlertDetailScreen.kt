@@ -39,8 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.Severity
+import dev.monts.gaca.ui.common.ConversationBubble
 import dev.monts.gaca.ui.inbox.severityColors
 import dev.monts.gaca.ui.theme.BorderColor
 import dev.monts.gaca.ui.theme.ChipBackground
@@ -48,6 +48,7 @@ import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SuggestBackground
+import dev.monts.gaca.ui.theme.crewColor
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
@@ -63,11 +64,20 @@ private fun severityLabel(severity: Severity): String = when (severity) {
 fun AlertDetailScreen(
     viewModel: AlertDetailViewModel,
     onBack: () -> Unit,
+    onOpenChat: (String) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(state.done) {
         if (state.done) onBack()
+    }
+
+    LaunchedEffect(state.openChatSessionId) {
+        val sessionId = state.openChatSessionId
+        if (sessionId != null) {
+            onOpenChat(sessionId)
+            viewModel.consumeOpenChat() // otherwise coming back here re-fires this every time
+        }
     }
 
     Column(
@@ -145,7 +155,7 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         }
 
         // Whatever the run (or a person) last said about this alert — the
-        // agent's own output on a `completed` run, the error on a failed
+        // crew member's own output on a `completed` run, the error on a failed
         // one, or a note left when it was acted/dismissed. Also present in
         // CONVERSATION below when there's a session, but that's the full
         // transcript; this is the one-line version worth seeing immediately.
@@ -198,70 +208,95 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         }
 
         if (state.conversationLoading || state.conversation.isNotEmpty()) {
+            // Which crew member this alert's session is actually with — advisory (api-contract.md
+            // §3), but the best available answer for "whose color are these replies in."
+            val conversationCrewColor = state.crew.firstOrNull { it.name == alert.crew }?.color
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("CONVERSATION", style = MaterialTheme.typography.labelMedium, color = TextMeta)
                 if (state.conversationLoading) {
                     CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        state.conversation.forEach { message -> ConversationBubble(message) }
+                        state.conversation.forEach { message -> ConversationBubble(message, conversationCrewColor) }
                     }
                 }
             }
         }
 
-        // Only worth showing when there's an actual choice to make — a
-        // single configured agent needs no picker.
-        if (state.agents.size > 1) {
+        // Only worth showing when there's an actual choice still to make — once
+        // delegated, a session is bound to one crew member for its whole life
+        // (no mid-thread swap), so the picker no longer means anything.
+        if (state.crew.size > 1 && alert.sessionId == null) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+                Text("CREW", style = MaterialTheme.typography.labelMedium, color = TextMeta)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.agents.forEach { agent ->
-                        val selected = agent.name == state.selectedAgent
+                    state.crew.forEach { member ->
+                        val selected = member.name == state.selectedCrew
+                        val memberColor = crewColor(member.color)
                         Box(
                             Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (selected) HeaderAccent else ChipBackground)
-                                .clickable { viewModel.selectAgent(agent.name) }
+                                .background(if (selected) memberColor else ChipBackground)
+                                .clickable { viewModel.selectCrew(member.name) }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         ) {
-                            Text(
-                                agent.name,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (selected) OnAccent else TextSecondary,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (!selected) {
+                                    Box(Modifier.size(7.dp).clip(CircleShape).background(memberColor))
+                                }
+                                Text(
+                                    member.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (selected) OnAccent else TextSecondary,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        if (state.showDelegateInput) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = state.delegateText,
-                    onValueChange = viewModel::setDelegateText,
-                    placeholder = { Text("Tell Hermes what to do…") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(HeaderAccent)
-                        .clickable(onClick = viewModel::sendDelegate)
-                        .padding(vertical = 11.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Send to Hermes", style = MaterialTheme.typography.labelLarge, color = OnAccent)
+        // "Open full chat" — the other half of the bidirectional alert↔chat link
+        // (api-contract.md §6): delegates first if this alert hasn't been yet
+        // (that's what creates the session), then drops straight into the real
+        // thread. The only way to keep talking to this alert's crew member now —
+        // there's no separate quick-ask box anymore, just this.
+        val chatCrewMember = state.crew.firstOrNull { it.name == state.selectedCrew }
+        if (state.selectedCrew != null) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(BorderColor))
+
+            val chatColor = chatCrewMember?.let { crewColor(it.color) } ?: HeaderAccent
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(chatColor)
+                    .clickable(enabled = !state.openingChat, onClick = viewModel::openFullChat)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+            ) {
+                if (state.openingChat) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    }
+                } else {
+                    Column {
+                        Text(
+                            "Open full chat with ${state.selectedCrew} →",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = OnAccent,
+                        )
+                        Text(
+                            "Go back and forth, see everything it does, ask follow-ups.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnAccent.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 }
             }
-        } else {
-            DashedActionButton("Ask Hermes something else", onClick = viewModel::toggleDelegate)
         }
 
         if (state.showSnoozeOptions) {
@@ -325,28 +360,6 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         }
 
         Spacer(Modifier.height(24.dp))
-    }
-}
-
-/** One turn of a delegated alert's session — the agent's own replies right-aligned,
- * everything else (the user's instruction, tool activity) left-aligned. */
-@Composable
-private fun ConversationBubble(message: ConversationMessage) {
-    val fromAgent = message.role == "assistant"
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (fromAgent) Arrangement.End else Arrangement.Start) {
-        Column(
-            Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (fromAgent) SuggestBackground else ChipBackground)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            Text(
-                message.role.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMeta,
-            )
-            Text(message.content, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
-        }
     }
 }
 

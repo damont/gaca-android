@@ -16,21 +16,21 @@ import retrofit2.HttpException
  */
 class AlertsRepository(private val api: GacaApi) {
 
-    suspend fun listAlerts(statuses: List<String>, agent: String? = null, limit: Int = 50): List<Alert> =
-        api.listAlerts(statuses = statuses, agents = agent?.let { listOf(it) }, limit = limit)
+    suspend fun listAlerts(statuses: List<String>, crew: String? = null, limit: Int = 50): List<Alert> =
+        api.listAlerts(statuses = statuses, crew = crew?.let { listOf(it) }, limit = limit)
             .alerts.map { it.toDomain() }
 
     suspend fun getAlert(id: String): Alert = api.getAlert(id).toDomain()
 
     /** POST /alerts with a normal session token — see [dev.monts.gaca.data.remote.AlertCreateRequest].
      * Lets the app raise its own alert (rather than waiting on Hermes to notice something) purely
-     * so it has something to hand to [delegate] right after. `agent` is who this alert is
+     * so it has something to hand to [delegate] right after. `crew` is who this alert is
      * attributed to — set it to whoever you're about to delegate to, same as Hermes would set its
-     * own name: `delegate()` never writes the resolved agent back onto the alert afterwards
-     * (gaca-api services/alerts.py), so this is the only chance to make the agent filter and the
+     * own name: `delegate()` never writes the resolved crew member back onto the alert afterwards
+     * (gaca-api services/alerts.py), so this is the only chance to make the crew filter and the
      * detail screen's picker match reality. */
-    suspend fun create(kind: String, title: String, body: String?, severity: String = "info", agent: String? = null): Alert =
-        api.createAlert(AlertCreateRequest(kind = kind, title = title, severity = severity, body = body, agent = agent)).toDomain()
+    suspend fun create(kind: String, title: String, body: String?, severity: String = "info", crew: String? = null): Alert =
+        api.createAlert(AlertCreateRequest(kind = kind, title = title, severity = severity, body = body, crew = crew)).toDomain()
 
     /** The session transcript behind a delegated alert — `null` if it was never delegated. */
     suspend fun getConversation(sessionId: String): List<ConversationMessage> =
@@ -49,18 +49,19 @@ class AlertsRepository(private val api: GacaApi) {
         id: String,
         instruction: String?,
         suggestedActionIndex: Int?,
-        agent: String? = null,
-    ): Alert = api.delegateAlert(id, AlertDelegateRequest(instruction, suggestedActionIndex, agent)).toDomain()
+        crew: String? = null,
+    ): Alert = api.delegateAlert(id, AlertDelegateRequest(instruction, suggestedActionIndex, crew)).toDomain()
 }
 
 /** api-contract.md §6: a 409 means the alert moved underneath you — refetch and re-render, don't retry the action. */
 fun Throwable.isStaleTransition(): Boolean = this is HttpException && code() == 409
 
-/** api-contract.md §6: a 400 on /delegate means this account has no agent that resolves — no host,
- * no agents, or no default. Agents are managed in-app now (Settings), not the old web profile page. */
+/** api-contract.md §10: a 400 (`CrewNotConfigured`) on /delegate means this account has no crew
+ * member that resolves — no host, no crew, or no default. Crew is managed in-app now (Settings),
+ * not the old web profile page. */
 fun Throwable.delegateErrorMessage(): String =
     if (this is HttpException && code() == 400) {
-        "Set up an agent in Settings first, then try delegating again."
+        "Set up a crew member in Settings first, then try delegating again."
     } else {
         friendlyMessage()
     }
