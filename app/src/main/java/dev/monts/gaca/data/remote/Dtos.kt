@@ -108,8 +108,12 @@ data class UserResponse(
 @Serializable
 data class CrewMemberCreateRequest(
     val name: String,
-    val port: Int,
-    @SerialName("api_key") val apiKey: String,
+    /** Give both to register a profile already set up by hand; omit both and gaca-api
+     * provisions a brand new one on the box directly (it picks the port, generates the
+     * key) — needs SSH access to the box, granted out of band and remembered server-side,
+     * so the app never collects or sends it. */
+    val port: Int? = null,
+    @SerialName("api_key") val apiKey: String? = null,
     val color: String? = null,
 )
 
@@ -136,6 +140,17 @@ data class CrewMemberDto(
 data class CrewDto(
     val host: String? = null,
     val crew: List<CrewMemberDto> = emptyList(),
+    /** Whether gaca-api already has SSH access to the box, i.e. whether adding a
+     * crew member can skip straight to a bare name instead of needing `access` too. */
+    @SerialName("can_create") val canCreate: Boolean = false,
+)
+
+/** GET /agent — is this account connected to an agent yet, and where. A real,
+ * dedicated record (not inferred from the crew list) — see api-contract.md §2. */
+@Serializable
+data class AgentStatusDto(
+    val connected: Boolean,
+    val host: String? = null,
 )
 
 /** A single turn in a session's transcript — GET /sessions/{id}. */

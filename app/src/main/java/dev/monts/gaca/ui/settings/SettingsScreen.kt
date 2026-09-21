@@ -125,27 +125,34 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
             Text(if (state.saved) "Saved" else "Save", style = MaterialTheme.typography.labelLarge, color = OnAccent)
         }
 
+        // GET /agent is a real, dedicated record of whether this account is
+        // connected and where — not inferred from the crew list. The crew member
+        // shown underneath it (whichever one is `isDefault`) is still a proxy for
+        // "which row represents that connection," since individual crew members
+        // don't carry a link back to it, but the connected/host badge itself is
+        // no longer a guess.
+        val agentMember = state.crew.firstOrNull { it.isDefault }
+        val otherCrew = state.crew.filterNot { it.isDefault }
+
         Spacer(Modifier.height(32.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("YOUR CREW", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
-            if (state.crewLoading) {
+            Text("AGENT", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
+            if (state.agentLoading) {
                 CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-            } else {
-                val configured = state.crew.isNotEmpty()
-                val (dot, bg) = if (configured) HeaderAccent to ChipBackground else SeverityWarnDot to SeverityWarnBg
-                Box(Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 8.dp, vertical = 2.dp)) {
-                    Text(
-                        if (configured) "${state.crew.size} configured" else "Not set up",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = dot,
-                    )
+            } else if (!state.agentConnected) {
+                Box(Modifier.clip(RoundedCornerShape(10.dp)).background(SeverityWarnBg).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text("Not connected", style = MaterialTheme.typography.labelSmall, color = SeverityWarnDot)
                 }
             }
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "Named profiles on your connected Hermes agent. Sessions and delegated alerts run against one of these — the default, unless something more specific applies.",
+            if (state.agentConnected) {
+                "The one Hermes connection everything else builds on — connected at ${state.agentHost}."
+            } else {
+                "The one Hermes connection everything else builds on. Connecting a new one isn't built here yet."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = TextMeta,
         )
@@ -157,7 +164,33 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(16.dp))
-        state.crew.forEach { member ->
+        if (agentMember != null) {
+            CrewRow(member = agentMember, state = state, viewModel = viewModel)
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("YOUR CREW", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
+            if (!state.crewLoading) {
+                Box(Modifier.clip(RoundedCornerShape(10.dp)).background(ChipBackground).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text(
+                        if (otherCrew.isEmpty()) "None yet" else "${otherCrew.size} configured",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HeaderAccent,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Additional named profiles on that same agent. Sessions and delegated alerts run against one of these when something more specific than the default applies.",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMeta,
+        )
+
+        Spacer(Modifier.height(16.dp))
+        otherCrew.forEach { member ->
             CrewRow(
                 member = member,
                 state = state,
@@ -202,9 +235,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
     }
 }
 
-/** "9. Add crew member (sheet)" — name/port/API key, plus the color-swatch row: leave
+/** "9. Add crew member (sheet)" — just a name now, plus the color-swatch row: leave
  * it on "Auto" and the server auto-assigns one from its own palette (first swatch not
- * already in use); tap a swatch to override before saving. */
+ * already in use); tap a swatch to override before saving. gaca-api provisions the
+ * actual Hermes profile on the box itself (SSH access already granted out of band),
+ * so there's no port or API key to type in here. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddCrewMemberSheet(state: SettingsUiState, viewModel: SettingsViewModel) {
@@ -224,25 +259,8 @@ private fun AddCrewMemberSheet(state: SettingsUiState, viewModel: SettingsViewMo
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Name") },
                 placeholder = { Text("toolshed") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = state.newCrewPortInput,
-                    onValueChange = viewModel::setNewCrewPortInput,
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Port") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                )
-                OutlinedTextField(
-                    value = state.newCrewApiKeyInput,
-                    onValueChange = viewModel::setNewCrewApiKeyInput,
-                    modifier = Modifier.weight(2f),
-                    label = { Text("API key") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                )
-            }
 
             Column {
                 Text("COLOR", style = MaterialTheme.typography.labelMedium, color = TextMeta)

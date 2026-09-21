@@ -17,9 +17,14 @@ data class SettingsUiState(
     val baseUrlInput: String = "",
     val saved: Boolean = false,
 
-    // "Your crew" — api-contract.md §2: this account already has an agent
-    // connected (the one Hermes box) with crew members (named profiles)
-    // under it. Connecting a new agent isn't built here yet — see BUILD_NEXT.md.
+    // "Agent" — api-contract.md §2: GET /agent is the real, dedicated record of
+    // whether this account is connected and where. Connecting a new agent
+    // (POST /agent/connect) isn't built here yet — see BUILD_NEXT.md.
+    val agentLoading: Boolean = true,
+    val agentConnected: Boolean = false,
+    val agentHost: String? = null,
+
+    // "Your crew" — named profiles under that agent.
     val crewLoading: Boolean = true,
     val crewError: String? = null,
     val crew: List<CrewMember> = emptyList(),
@@ -30,12 +35,12 @@ data class SettingsUiState(
     val editApiKeyInput: String = "",
     val editSaving: Boolean = false,
 
-    // Add-crew-member sheet (Slice 8) — POST /crew auto-assigns a color when
-    // `newCrewColor` stays null; picking a swatch overrides that.
+    // Add-crew-member sheet — just a name (+ optional color override). gaca-api
+    // now provisions the profile on the box directly (SSH access was granted out
+    // of band and is remembered server-side, so the app never collects it) —
+    // no port or API key to type in here anymore.
     val showAddCrewSheet: Boolean = false,
     val newCrewName: String = "",
-    val newCrewPortInput: String = "",
-    val newCrewApiKeyInput: String = "",
     val newCrewColor: String? = null,
     val newCrewSaving: Boolean = false,
 )
@@ -53,7 +58,22 @@ class SettingsViewModel(
         viewModelScope.launch {
             settingsStore.baseUrl.collect { url -> _uiState.update { it.copy(baseUrlInput = url) } }
         }
+        loadAgentStatus()
         loadCrew()
+    }
+
+    fun loadAgentStatus() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(agentLoading = true) }
+            try {
+                val status = authRepository.getAgentStatus()
+                _uiState.update { it.copy(agentLoading = false, agentConnected = status.connected, agentHost = status.host) }
+            } catch (e: Exception) {
+                // Best-effort — the AGENT section falls back to inferring from the crew
+                // list (isDefault) if this fails; the crew section still works either way.
+                _uiState.update { it.copy(agentLoading = false) }
+            }
+        }
     }
 
     fun setBaseUrlInput(value: String) = _uiState.update { it.copy(baseUrlInput = value, saved = false) }
@@ -139,20 +159,12 @@ class SettingsViewModel(
     // ── add ───────────────────────────────────────────────────────────
 
     fun openAddCrewSheet() = _uiState.update {
-        it.copy(
-            showAddCrewSheet = true,
-            newCrewName = "",
-            newCrewPortInput = "",
-            newCrewApiKeyInput = "",
-            newCrewColor = null,
-        )
+        it.copy(showAddCrewSheet = true, newCrewName = "", newCrewColor = null)
     }
 
     fun dismissAddCrewSheet() = _uiState.update { it.copy(showAddCrewSheet = false) }
 
     fun setNewCrewName(value: String) = _uiState.update { it.copy(newCrewName = value) }
-    fun setNewCrewPortInput(value: String) = _uiState.update { it.copy(newCrewPortInput = value) }
-    fun setNewCrewApiKeyInput(value: String) = _uiState.update { it.copy(newCrewApiKeyInput = value) }
 
     /** `null` means "let the server auto-assign" — tapping the already-selected
      * swatch again goes back to that, rather than forcing a choice. */
@@ -162,16 +174,15 @@ class SettingsViewModel(
 
     fun addCrewMember() {
         val name = _uiState.value.newCrewName.trim()
-        val port = _uiState.value.newCrewPortInput.trim().toIntOrNull()
-        val apiKey = _uiState.value.newCrewApiKeyInput.trim()
-        if (name.isEmpty() || port == null || apiKey.isEmpty()) {
-            _uiState.update { it.copy(crewError = "A name, a valid port, and a key are all required.") }
+        if (name.isEmpty()) {
+            _uiState.update { it.copy(crewError = "A name is required.") }
             return
         }
         viewModelScope.launch {
             _uiState.update { it.copy(newCrewSaving = true, crewError = null) }
             try {
-                val config = authRepository.addCrewMember(name, port, apiKey, _uiState.value.newCrewColor)
+                // No port/API key — gaca-api provisions the profile on the box itself.
+                val config = authRepository.addCrewMember(name, color = _uiState.value.newCrewColor)
                 _uiState.update { it.copy(newCrewSaving = false, crew = config.crew, showAddCrewSheet = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(newCrewSaving = false, crewError = e.friendlyMessage()) }

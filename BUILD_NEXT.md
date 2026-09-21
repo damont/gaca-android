@@ -14,13 +14,23 @@ of that conversation's context, so this is everything you need.
 > is a working reference for the two-phase (connect, then manage-crew) UI
 > split, if useful — different framework, same idea, don't port it literally.
 >
-> **One thing explicitly NOT for you to build yet**: the backend also grew
-> an *optional* capability where gaca-api can create a new crew member on
-> the Hermes box directly (SSH-based, `/api/agent/provisioning` +
-> `/api/agent/discover` — a whole separate thing from anything in this
-> file). The user was explicit: come back to that *after* the current
-> chat/crew/skills slices are done. `POST /crew` still means "register one I
-> already set up by hand" for now — keep building against that.
+> **Update, 2026-09-20, still later the same day**: the backend also grew an
+> *optional* capability where gaca-api can create a new crew member on the
+> Hermes box directly, instead of you setting one up by hand and typing in
+> its port/key. This went through two shapes before landing — an early draft
+> put it behind its own `/agent/provisioning` resource (status/set/test
+> endpoints); that was removed the same day after the user pointed out the
+> app shouldn't need to know it exists at all. **Final shape: it's just an
+> optional `access` field on `POST /crew` itself** (and on
+> `POST /crew/discover`, which finds crew members that already exist on the
+> box but were never registered through gaca-api). Give `access` once,
+> gaca-api remembers it for every call after. `CrewOut` (what `GET /crew`
+> and every mutating crew call returns) gained `can_create: bool` so a
+> client can tell whether its "add crew member" form needs to ask for
+> `access` or can just ask for a name. If you build UI for this, it's one
+> form on one existing screen (Settings' crew list) — not a separate setup
+> flow. See `api-contract.md` §2's "Having gaca-api create a crew member for
+> you" for the exact shape.
 
 ## 1. Orientation — read these first, in order
 

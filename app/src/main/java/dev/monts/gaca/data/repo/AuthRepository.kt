@@ -1,6 +1,7 @@
 package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.local.TokenStore
+import dev.monts.gaca.data.remote.AgentStatusDto
 import dev.monts.gaca.data.remote.CrewDto
 import dev.monts.gaca.data.remote.CrewMemberCreateRequest
 import dev.monts.gaca.data.remote.CrewMemberUpdateRequest
@@ -21,10 +22,25 @@ data class User(val id: String, val name: String, val email: String)
  * message bubbles, a settings-row border. */
 data class CrewMember(val name: String, val port: Int, val color: String, val isDefault: Boolean)
 
-data class CrewConfig(val host: String?, val crew: List<CrewMember>)
+data class CrewConfig(
+    val host: String?,
+    val crew: List<CrewMember>,
+    /** True once gaca-api already has SSH access to the box (granted via `access` on
+     * some earlier `POST /crew`/`POST /crew/discover` call) — a client can use this to
+     * know its "add crew member" form only needs a name, not `access` too. Not yet
+     * surfaced in the Add-crew-member sheet; that form has always just asked for a
+     * name and let a real `CrewNotConfigured` error explain when that's not enough. */
+    val canCreate: Boolean,
+)
 
 private fun CrewDto.toDomain(): CrewConfig =
-    CrewConfig(host, crew.map { CrewMember(it.name, it.port, it.color, it.isDefault) })
+    CrewConfig(host, crew.map { CrewMember(it.name, it.port, it.color, it.isDefault) }, canCreate)
+
+/** GET /agent — a real, dedicated "is an agent connected" record, independent of the
+ * crew list (not inferred from it, e.g. via a crew member's `isDefault` flag). */
+data class AgentStatus(val connected: Boolean, val host: String?)
+
+private fun AgentStatusDto.toDomain(): AgentStatus = AgentStatus(connected, host)
 
 data class AuthUiState(
     val user: User? = null,
@@ -105,9 +121,18 @@ class AuthRepository(
      * account already has an agent connected, so that step isn't built on Android yet. */
     suspend fun getCrew(): CrewConfig = api.getCrew().toDomain()
 
+    /** Is this account connected to an agent yet, and where — a real record, not a guess
+     * derived from the crew list. Connecting one (POST /agent/connect) isn't built here yet. */
+    suspend fun getAgentStatus(): AgentStatus = api.getAgentStatus().toDomain()
+
     /** The first crew member added becomes the default automatically. `color` is
-     * optional — omit it (null) to let the server auto-assign one. */
-    suspend fun addCrewMember(name: String, port: Int, apiKey: String, color: String? = null): CrewConfig =
+     * optional — omit it (null) to let the server auto-assign one. `port`/`apiKey`
+     * register a profile already set up by hand; omit both and gaca-api provisions
+     * a brand new one on the box directly (needs SSH access — an optional `access`
+     * field on this same call, remembered server-side after the first time it's
+     * given; `CrewConfig.canCreate` says whether that's already true for this
+     * account, so this app never has to collect or send it itself). */
+    suspend fun addCrewMember(name: String, port: Int? = null, apiKey: String? = null, color: String? = null): CrewConfig =
         api.addCrewMember(CrewMemberCreateRequest(name, port, apiKey, color)).toDomain()
 
     /** Both fields required together — there's no partial update on this endpoint. */
