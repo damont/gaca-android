@@ -27,6 +27,9 @@ interface GacaApi {
     @GET("auth/me")
     suspend fun me(): UserResponse
 
+    @GET("agent")
+    suspend fun getAgentStatus(): AgentStatusDto
+
     @GET("crew")
     suspend fun getCrew(): CrewDto
 
