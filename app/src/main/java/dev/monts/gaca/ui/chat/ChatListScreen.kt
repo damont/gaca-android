@@ -192,7 +192,7 @@ private fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: () 
         Column(Modifier.weight(1f)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    session.title ?: crewMember?.name ?: session.crew ?: "Chat",
+                    session.summary ?: session.title ?: "New chat",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                     maxLines = 1,
@@ -201,6 +201,20 @@ private fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: () 
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(relativeTime(session.createdAt), style = MaterialTheme.typography.bodySmall, color = TextMeta)
+            }
+            if (session.preview != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    session.preview,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            (crewMember?.name ?: session.crew)?.let { crewName ->
+                Spacer(Modifier.height(4.dp))
+                Text(crewName, style = MaterialTheme.typography.labelSmall, color = color)
             }
             if (session.alertId != null) {
                 Spacer(Modifier.height(4.dp))

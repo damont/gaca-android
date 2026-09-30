@@ -16,9 +16,13 @@ data class Session(
      * pointer to [Alert.sessionId]'s forward one. `null` for a session started
      * directly from the Chat tab. */
     val alertId: String?,
+    /** What the Chat list shows as the chat's headline — computed by the API, display only. */
+    val summary: String?,
+    /** One-line preview of the latest message — computed by the API, display only. */
+    val preview: String?,
 )
 
-fun SessionDto.toDomain(): Session = Session(id, createdAt, title, status, crew, alertId)
+fun SessionDto.toDomain(): Session = Session(id, createdAt, title, status, crew, alertId, summary, preview)
 
 /** [Session] plus its transcript, oldest first — GET /sessions/{id}. */
 data class SessionDetail(
@@ -27,6 +31,6 @@ data class SessionDetail(
 )
 
 fun SessionDetailDto.toDomain(): SessionDetail = SessionDetail(
-    session = Session(id, createdAt, title, status, crew, alertId),
+    session = Session(id, createdAt, title, status, crew, alertId, summary, preview),
     messages = messages.map { it.toDomain() },
 )

@@ -174,6 +174,10 @@ data class SessionDto(
     val status: String,
     val crew: String? = null,
     @SerialName("alert_id") val alertId: String? = null,
+    /** Headline for the Chat list, computed by the API (title, else the opening message). */
+    val summary: String? = null,
+    /** One-line preview of the latest message, computed by the API. */
+    val preview: String? = null,
 )
 
 /** GET /sessions. */
@@ -198,6 +202,8 @@ data class SessionDetailDto(
     val status: String,
     val crew: String? = null,
     @SerialName("alert_id") val alertId: String? = null,
+    val summary: String? = null,
+    val preview: String? = null,
     val messages: List<MessageDto> = emptyList(),
 )
 

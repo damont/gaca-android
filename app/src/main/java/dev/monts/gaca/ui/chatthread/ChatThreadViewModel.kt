@@ -58,6 +58,9 @@ private data class AssistantDeltaPayload(val text: String)
 private data class ToolStartedPayload(val tool: String)
 
 @Serializable
+private data class RunHeartbeatPayload(@SerialName("idle_seconds") val idleSeconds: Double = 0.0)
+
+@Serializable
 private data class RunFailedPayload(val error: String)
 
 /** Every GacaEvent carries this envelope regardless of type (gaca_api/schemas/event.py's
@@ -228,6 +231,14 @@ class ChatThreadViewModel(
                         currentRunId = runId ?: it.currentRunId,
                     )
                 }
+            }
+            // Ephemeral keepalive from the API while the engine is quiet (thinking, or a slow
+            // tool) — only shows the run is alive; it carries no state worth keeping.
+            "run.heartbeat" -> {
+                if (!awaitingReply) return
+                val beat = runCatching { eventJson.decodeFromString<RunHeartbeatPayload>(event.data) }.getOrNull()
+                val secs = beat?.idleSeconds?.toInt() ?: 0
+                _uiState.update { it.copy(runStatus = if (secs >= 30) "Still working… (${secs}s)" else "Still working…") }
             }
             // run.completed/run.failed always run, gate or not — reloadSession() is
             // idempotent, so a stale replayed terminus for an already-persisted run
