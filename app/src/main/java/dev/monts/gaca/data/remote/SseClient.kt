@@ -31,7 +31,15 @@ data class SseEvent(val id: String?, val type: String, val data: String)
  * "durable and sequenced, not fire-and-forget," specifically so a dropped
  * connection doesn't lose anything the server already has.
  */
-class SseClient(private val client: OkHttpClient, private val baseUrl: String) {
+class SseClient(client: OkHttpClient, private val baseUrl: String) {
+
+    // The shared client's default 10s read timeout is shorter than the server's quiet
+    // gaps (SSE pings and run.heartbeat both come every ~15s), so every stream was cut and
+    // re-opened every ~12s — and heartbeats never arrived. 45s = three ping intervals: long
+    // enough to ride out normal quiet, short enough to notice a genuinely dead connection.
+    private val client: OkHttpClient = client.newBuilder()
+        .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     fun stream(path: String, initialLastEventId: String? = null): Flow<SseEvent> = callbackFlow {
         var lastEventId = initialLastEventId
