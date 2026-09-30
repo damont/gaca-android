@@ -45,6 +45,9 @@ interface GacaApi {
     @POST("crew/{name}/default")
     suspend fun setDefaultCrewMember(@Path("name") name: String): CrewDto
 
+    @GET("briefings")
+    suspend fun getBriefing(@Query("date") date: String): BriefingDto
+
     @GET("crew/{name}/skills")
     suspend fun getSkills(@Path("name") name: String): List<SkillDto>
 

@@ -238,3 +238,37 @@ data class PushTokenRegisterRequest(
 data class PushTokenUnregisterRequest(
     val token: String,
 )
+
+
+/** One row in a briefing section — gaca-planning/briefing/api-contract.md. `time` is free
+ * text the poster formatted; show it as-is. */
+@Serializable
+data class BriefingItemDto(
+    val title: String,
+    val body: String? = null,
+    val time: String? = null,
+    val location: String? = null,
+    val link: String? = null,
+    val priority: String = "medium",
+)
+
+@Serializable
+data class BriefingSectionDto(
+    val key: String,
+    val title: String,
+    val kind: String = "general",
+    val headline: String? = null,
+    val items: List<BriefingItemDto> = emptyList(),
+    @SerialName("display_order") val displayOrder: Int = 0,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+/** GET /briefings?date= — sections already in display order; empty (not an error) if
+ * nothing was posted for that day. */
+@Serializable
+data class BriefingDto(
+    val date: String,
+    val summary: String? = null,
+    val sections: List<BriefingSectionDto> = emptyList(),
+    @SerialName("updated_at") val updatedAt: String? = null,
+)

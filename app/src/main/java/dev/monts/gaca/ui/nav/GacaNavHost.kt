@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -42,6 +43,8 @@ import dev.monts.gaca.ui.chat.ChatListScreen
 import dev.monts.gaca.ui.chat.ChatListViewModel
 import dev.monts.gaca.ui.chatthread.ChatThreadScreen
 import dev.monts.gaca.ui.chatthread.ChatThreadViewModel
+import dev.monts.gaca.ui.daily.DailyScreen
+import dev.monts.gaca.ui.daily.DailyViewModel
 import dev.monts.gaca.ui.detail.AlertDetailScreen
 import dev.monts.gaca.ui.detail.AlertDetailViewModel
 import dev.monts.gaca.ui.inbox.InboxScreen
@@ -59,6 +62,7 @@ import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.TextSecondary
 
 private const val ROUTE_LOGIN = "login"
+private const val ROUTE_DAILY = "daily"
 private const val ROUTE_INBOX = "inbox"
 private const val ROUTE_CHAT_LIST = "chat"
 private const val ROUTE_SKILLS = "skills"
@@ -72,6 +76,7 @@ private const val ROUTE_CHAT_THREAD = "chat-thread/{sessionId}?prefill={prefill}
 private data class BottomNavTab(val route: String, val label: String, val icon: ImageVector)
 
 private val bottomNavTabs = listOf(
+    BottomNavTab(ROUTE_DAILY, "Today", Icons.Filled.WbSunny),
     BottomNavTab(ROUTE_INBOX, "Inbox", Icons.Filled.Inbox),
     BottomNavTab(ROUTE_CHAT_LIST, "Chat", Icons.AutoMirrored.Filled.Chat),
     BottomNavTab(ROUTE_SKILLS, "Skills", Icons.Filled.AutoAwesome),
@@ -143,6 +148,14 @@ fun GacaNavHost(
                 factory = viewModelFactory { initializer { LoginViewModel(container.authRepository) } },
             )
             LoginScreen(vm)
+        }
+        composable(ROUTE_DAILY) {
+            val vm = viewModel<DailyViewModel>(
+                factory = viewModelFactory { initializer { DailyViewModel(container.briefingRepository) } },
+            )
+            TabbedScreen(navController, currentRoute) {
+                DailyScreen(viewModel = vm, onOpenSettings = { navController.navigate(ROUTE_SETTINGS) })
+            }
         }
         composable(ROUTE_INBOX) {
             val vm = viewModel<InboxViewModel>(
