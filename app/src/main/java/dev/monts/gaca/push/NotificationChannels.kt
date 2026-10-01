@@ -38,4 +38,15 @@ fun createNotificationChannels(context: Context) {
             description = context.getString(R.string.notification_channel_standard_description)
         },
     )
+    // Chat replies are conversational, so they get a heads-up (HIGH) like a messaging
+    // app — and their own channel so they can be muted without silencing alerts.
+    manager.createNotificationChannel(
+        NotificationChannel(
+            context.getString(R.string.notification_channel_chat_id),
+            context.getString(R.string.notification_channel_chat_name),
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = context.getString(R.string.notification_channel_chat_description)
+        },
+    )
 }

@@ -87,6 +87,8 @@ fun GacaNavHost(
     container: AppContainer,
     pendingAlertId: String? = null,
     onPendingAlertConsumed: () -> Unit = {},
+    pendingSessionId: String? = null,
+    onPendingSessionConsumed: () -> Unit = {},
 ) {
     val authState by container.authRepository.state.collectAsState()
 
@@ -134,6 +136,14 @@ fun GacaNavHost(
         if (pendingAlertId != null && authState.user != null) {
             navController.navigate("detail/$pendingAlertId")
             onPendingAlertConsumed()
+        }
+    }
+
+    // Same idea for a chat-reply notification: open that thread once we're signed in.
+    LaunchedEffect(pendingSessionId, authState.user) {
+        if (pendingSessionId != null && authState.user != null) {
+            navController.navigate("chat-thread/$pendingSessionId")
+            onPendingSessionConsumed()
         }
     }
 

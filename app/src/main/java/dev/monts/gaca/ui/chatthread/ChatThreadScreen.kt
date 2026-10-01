@@ -38,6 +38,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import dev.monts.gaca.push.ActiveChat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +64,13 @@ import dev.monts.gaca.ui.theme.crewColor
 @Composable
 fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenAlert: (String) -> Unit) {
     val state by viewModel.uiState.collectAsState()
+    val openSessionId = state.sessionDetail?.session?.id
+    // Tell the push service which thread is on screen — only while RESUMED, so a
+    // backgrounded app still gets its notifications.
+    LifecycleResumeEffect(openSessionId) {
+        ActiveChat.sessionId = openSessionId
+        onPauseOrDispose { if (ActiveChat.sessionId == openSessionId) ActiveChat.sessionId = null }
+    }
     val member = state.crewMember
     val accent = member?.let { crewColor(it.color) } ?: HeaderAccent
     val listState = rememberLazyListState()

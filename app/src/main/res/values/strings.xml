@@ -8,4 +8,8 @@
     <string name="notification_channel_standard_id" translatable="false">alerts_standard</string>
     <string name="notification_channel_standard_name">Alerts</string>
     <string name="notification_channel_standard_description">Everything else Hermes tells you about</string>
+
+    <string name="notification_channel_chat_id" translatable="false">chat_replies</string>
+    <string name="notification_channel_chat_name">Chat replies</string>
+    <string name="notification_channel_chat_description">When your agent answers a message</string>
 </resources>

@@ -12,12 +12,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import dev.monts.gaca.push.EXTRA_ALERT_ID
+import dev.monts.gaca.push.EXTRA_SESSION_ID
 import dev.monts.gaca.ui.nav.GacaNavHost
 import dev.monts.gaca.ui.theme.GacaTheme
 
 class MainActivity : ComponentActivity() {
 
     private val pendingAlertId = mutableStateOf<String?>(null)
+    private val pendingSessionId = mutableStateOf<String?>(null)
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means no future pushes show — nothing to react to here */ }
@@ -26,6 +28,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingAlertId.value = intent?.getStringExtra(EXTRA_ALERT_ID)
+        pendingSessionId.value = intent?.getStringExtra(EXTRA_SESSION_ID)
         requestNotificationPermissionIfNeeded()
 
         val container = (application as GacaApp).container
@@ -35,6 +38,8 @@ class MainActivity : ComponentActivity() {
                     container = container,
                     pendingAlertId = pendingAlertId.value,
                     onPendingAlertConsumed = { pendingAlertId.value = null },
+                    pendingSessionId = pendingSessionId.value,
+                    onPendingSessionConsumed = { pendingSessionId.value = null },
                 )
             }
         }
@@ -45,6 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingAlertId.value = intent.getStringExtra(EXTRA_ALERT_ID)
+        pendingSessionId.value = intent.getStringExtra(EXTRA_SESSION_ID)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
