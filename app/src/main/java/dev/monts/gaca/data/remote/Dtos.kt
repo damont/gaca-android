@@ -161,6 +161,16 @@ data class MessageDto(
     val role: String,
     val content: String,
     @SerialName("created_at") val createdAt: String,
+    val attachments: List<AttachmentDto> = emptyList(),
+)
+
+/** A photo on a message. [url] is relative to the API base and needs the bearer token. */
+@Serializable
+data class AttachmentDto(
+    val id: String,
+    @SerialName("content_type") val contentType: String,
+    val size: Long = 0,
+    val url: String = "",
 )
 
 /** A session summary — GET /sessions (the Chat tab's list) and the response of
@@ -211,6 +221,8 @@ data class SessionDetailDto(
 @Serializable
 data class MessageCreateRequest(
     val content: String,
+    /** Ids from POST /sessions/{id}/attachments; text is optional when there's at least one. */
+    @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
 )
 
 /** 202 body — the message was stored; the reply streams in on GET /sessions/{id}/events. */

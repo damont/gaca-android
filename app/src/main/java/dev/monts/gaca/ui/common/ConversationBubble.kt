@@ -1,6 +1,16 @@
 package dev.monts.gaca.ui.common
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import dev.monts.gaca.ui.theme.BorderColor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,7 +42,12 @@ import dev.monts.gaca.ui.theme.crewColor
  * resolves.
  */
 @Composable
-fun ConversationBubble(message: ConversationMessage, crewColorHex: String? = null) {
+fun ConversationBubble(
+    message: ConversationMessage,
+    crewColorHex: String? = null,
+    /** Fetches a photo by its API-relative url (with auth). When null, photos aren't shown. */
+    imageLoader: (suspend (String) -> Bitmap?)? = null,
+) {
     val fromCrew = message.role == "assistant"
     val bubbleColor = if (fromCrew) {
         crewColorHex?.let { crewChipTint(it) } ?: SuggestBackground
@@ -54,7 +69,32 @@ fun ConversationBubble(message: ConversationMessage, crewColorHex: String? = nul
                 style = MaterialTheme.typography.labelSmall,
                 color = labelColor,
             )
-            Text(message.content, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            message.localPreviews.forEach { PhotoThumb(it) }
+            if (imageLoader != null && message.localPreviews.isEmpty()) {
+                message.attachments.forEach { attachment ->
+                    val bitmap by produceState<Bitmap?>(null, attachment.url) { value = imageLoader(attachment.url) }
+                    bitmap?.let { PhotoThumb(it) } ?: Box(
+                        Modifier.fillMaxWidth().height(120.dp).padding(vertical = 2.dp).clip(RoundedCornerShape(8.dp)).background(BorderColor),
+                    )
+                }
+            }
+            if (message.content.isNotBlank()) {
+                Text(message.content, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            }
         }
     }
+}
+
+@Composable
+private fun PhotoThumb(bitmap: Bitmap) {
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = "Photo",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 220.dp)
+            .padding(vertical = 2.dp)
+            .clip(RoundedCornerShape(8.dp)),
+    )
 }

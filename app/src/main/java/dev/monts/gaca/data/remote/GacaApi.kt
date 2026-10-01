@@ -1,5 +1,6 @@
 package dev.monts.gaca.data.remote
 
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -88,6 +89,10 @@ interface GacaApi {
 
     @POST("sessions/{id}/messages")
     suspend fun postMessage(@Path("id") id: String, @Body body: MessageCreateRequest): MessageAcceptedDto
+
+    /** Raw image bytes as the body (the API takes JPEG/PNG/WebP/GIF up to 2 MB). */
+    @POST("sessions/{id}/attachments")
+    suspend fun uploadAttachment(@Path("id") id: String, @Body body: RequestBody): AttachmentDto
 
     @POST("push/register")
     suspend fun registerPushToken(@Body body: PushTokenRegisterRequest)

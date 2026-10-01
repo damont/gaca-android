@@ -1,5 +1,7 @@
 package dev.monts.gaca.ui.chatthread
 
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.remote.SseEvent
@@ -9,6 +11,8 @@ import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.SessionDetail
 import dev.monts.gaca.data.repo.SessionsRepository
+import dev.monts.gaca.util.PhotoPrep
+import dev.monts.gaca.util.PreparedPhoto
 import dev.monts.gaca.util.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +34,11 @@ data class ChatThreadUiState(
     val error: String? = null,
     val messageText: String = "",
     val sending: Boolean = false,
+
+    /** Photos picked for the next message — already shrunk and ready to upload. */
+    val pendingPhotos: List<PreparedPhoto> = emptyList(),
+    /** True while picked photos are still being decoded/shrunk. */
+    val preparingPhotos: Boolean = false,
 
     /** The reply in progress, reassembled from `assistant.delta` events — `null` means no run
      * is currently streaming a reply. Rendered as one more bubble after the persisted messages,
@@ -143,32 +152,66 @@ class ChatThreadViewModel(
 
     fun setMessageText(text: String) = _uiState.update { it.copy(messageText = text) }
 
-    fun send() {
-        val text = _uiState.value.messageText.trim()
-        if (text.isEmpty() || _uiState.value.sending) return
-
-        // Clear + append right away — the tap should feel like it did something
-        // immediately, not after a network round trip.
-        val optimistic = ConversationMessage(
-            id = "pending-${System.currentTimeMillis()}",
-            role = "user",
-            content = text,
-            createdAt = Instant.now().toString(),
-        )
-        _uiState.update { state ->
-            val detail = state.sessionDetail ?: return@update state
-            state.copy(
-                sessionDetail = detail.copy(messages = detail.messages + optimistic),
-                messageText = "",
-                sending = true,
-                error = null,
-                newMessageTick = state.newMessageTick + 1,
-            )
+    /** Decodes and shrinks the picked photos (off the main thread), up to [PhotoPrep.MAX_PHOTOS] total. */
+    fun addPhotos(resolver: ContentResolver, uris: List<Uri>) {
+        val room = PhotoPrep.MAX_PHOTOS - _uiState.value.pendingPhotos.size
+        if (uris.isEmpty() || room <= 0) return
+        _uiState.update { it.copy(preparingPhotos = true, error = null) }
+        viewModelScope.launch {
+            val prepared = uris.take(room).mapNotNull { PhotoPrep.prepare(resolver, it) }
+            _uiState.update {
+                it.copy(
+                    pendingPhotos = (it.pendingPhotos + prepared).take(PhotoPrep.MAX_PHOTOS),
+                    preparingPhotos = false,
+                    error = if (prepared.size < uris.take(room).size) "Couldn't read one of those photos" else it.error,
+                )
+            }
         }
+    }
+
+    fun removePhoto(id: String) = _uiState.update { s -> s.copy(pendingPhotos = s.pendingPhotos.filterNot { it.id == id }) }
+
+    suspend fun loadImage(url: String) = sessionsRepository.loadImage(url)
+
+    fun send() {
+        val before = _uiState.value
+        val text = before.messageText.trim()
+        val photos = before.pendingPhotos
+        if ((text.isEmpty() && photos.isEmpty()) || before.sending || before.preparingPhotos) return
+
+        // Text and photos stay in the draft until the photos are uploaded — if an upload
+        // fails nothing is lost and the same tap can simply be retried.
+        _uiState.update { it.copy(sending = true, error = null) }
 
         viewModelScope.launch {
+            val photoIds = try {
+                photos.map { sessionsRepository.uploadPhoto(sessionId, it.jpeg) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(sending = false, error = e.friendlyMessage()) }
+                return@launch
+            }
+
+            // Clear + append right away — the tap should feel like it did something
+            // immediately, not after a network round trip.
+            val optimistic = ConversationMessage(
+                id = "pending-${System.currentTimeMillis()}",
+                role = "user",
+                content = text,
+                createdAt = Instant.now().toString(),
+                localPreviews = photos.map { it.thumbnail },
+            )
+            _uiState.update { state ->
+                val detail = state.sessionDetail ?: return@update state
+                state.copy(
+                    sessionDetail = detail.copy(messages = detail.messages + optimistic),
+                    messageText = "",
+                    pendingPhotos = emptyList(),
+                    newMessageTick = state.newMessageTick + 1,
+                )
+            }
+
             try {
-                sessionsRepository.sendMessage(sessionId, text)
+                sessionsRepository.sendMessage(sessionId, text, photoIds)
                 // Replaces the optimistic entry with the server's own persisted copy. The
                 // reply itself streams in over the event collector in init{}, not from here.
                 reloadSession()

@@ -64,9 +64,19 @@ data class ConversationMessage(
     val role: String,
     val content: String,
     val createdAt: String,
+    /** Photos on this message, as the server stored them. */
+    val attachments: List<MessageAttachment> = emptyList(),
+    /** Thumbnails for a message just sent from this device, shown until the server's copy loads. */
+    val localPreviews: List<android.graphics.Bitmap> = emptyList(),
 )
 
-fun MessageDto.toDomain(): ConversationMessage = ConversationMessage(id, role, content, createdAt)
+/** A photo on a message; [url] is relative to the API base and must be fetched with auth. */
+data class MessageAttachment(val id: String, val url: String)
+
+fun MessageDto.toDomain(): ConversationMessage = ConversationMessage(
+    id, role, content, createdAt,
+    attachments = attachments.map { MessageAttachment(it.id, it.url) },
+)
 
 /** `data` is arbitrary JSON from whatever posted the alert — render it, never assume its shape. */
 private fun renderJsonValue(element: kotlinx.serialization.json.JsonElement): String = when (element) {

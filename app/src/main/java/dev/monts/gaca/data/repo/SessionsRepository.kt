@@ -1,5 +1,7 @@
 package dev.monts.gaca.data.repo
 
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.data.remote.MessageCreateRequest
 import dev.monts.gaca.data.remote.SessionCreateRequest
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 class SessionsRepository(
     private val api: GacaApi,
     private val sseClient: SseClient,
+    private val images: ImageRepository,
 ) {
 
     /** The Chat tab's list, newest first — no messages, no filtering yet (api-contract.md §6). */
@@ -29,8 +32,15 @@ class SessionsRepository(
 
     /** `202`s immediately with a turn id — this does not wait for a reply; the reply
      * streams in on [events] and lands in the transcript when the run completes. */
-    suspend fun sendMessage(sessionId: String, content: String): String =
-        api.postMessage(sessionId, MessageCreateRequest(content)).turnId
+    suspend fun sendMessage(sessionId: String, content: String, attachmentIds: List<String> = emptyList()): String =
+        api.postMessage(sessionId, MessageCreateRequest(content, attachmentIds)).turnId
+
+    /** Uploads one already-shrunk JPEG; the returned id goes in [sendMessage]'s `attachmentIds`. */
+    suspend fun uploadPhoto(sessionId: String, jpeg: ByteArray): String =
+        api.uploadAttachment(sessionId, jpeg.toRequestBody("image/jpeg".toMediaType())).id
+
+    /** A photo from a message, fetched with auth and cached. `null` if it can't be loaded. */
+    suspend fun loadImage(url: String) = images.load(url)
 
     /** `assistant.delta` / `tool.started` / `run.completed` / `run.failed`, in order,
      * reconnecting on its own if the connection drops. */

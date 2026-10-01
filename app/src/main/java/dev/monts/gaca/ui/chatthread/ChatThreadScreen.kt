@@ -38,6 +38,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import dev.monts.gaca.util.PhotoPrep
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.monts.gaca.push.ActiveChat
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +82,10 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
         ActiveChat.sessionId = openSessionId
         onPauseOrDispose { if (ActiveChat.sessionId == openSessionId) ActiveChat.sessionId = null }
     }
+    val resolver = LocalContext.current.contentResolver
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(PhotoPrep.MAX_PHOTOS),
+    ) { uris -> viewModel.addPhotos(resolver, uris) }
     val member = state.crewMember
     val accent = member?.let { crewColor(it.color) } ?: HeaderAccent
     val listState = rememberLazyListState()
@@ -211,7 +226,7 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
                                     )
                                 }
                             }
-                            items(messages.asReversed(), key = { it.id }) { message -> ConversationBubble(message, member?.color) }
+                            items(messages.asReversed(), key = { it.id }) { message -> ConversationBubble(message, member?.color, imageLoader = viewModel::loadImage) }
                         }
                     }
                 }
@@ -228,18 +243,57 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
             )
         }
 
+        if (state.pendingPhotos.isNotEmpty() || state.preparingPhotos) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                state.pendingPhotos.forEach { photo ->
+                    Box(Modifier.size(64.dp)) {
+                        Image(
+                            bitmap = photo.thumbnail.asImageBitmap(),
+                            contentDescription = "Attached photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)),
+                        )
+                        Box(
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(HeaderAccent)
+                                .clickable { viewModel.removePhoto(photo.id) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = OnAccent, modifier = Modifier.size(12.dp))
+                        }
+                    }
+                }
+                if (state.preparingPhotos) {
+                    CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+            }
+        }
+
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            IconButton(
+                onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                enabled = state.pendingPhotos.size < PhotoPrep.MAX_PHOTOS && !state.sending,
+            ) {
+                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach photo", tint = accent)
+            }
             OutlinedTextField(
                 value = state.messageText,
                 onValueChange = viewModel::setMessageText,
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Message${member?.let { " " + it.name } ?: ""}…") },
             )
-            val canSend = state.messageText.isNotBlank() && !state.sending
+            val canSend = (state.messageText.isNotBlank() || state.pendingPhotos.isNotEmpty()) && !state.sending && !state.preparingPhotos
             Box(
                 Modifier
                     .size(44.dp)
