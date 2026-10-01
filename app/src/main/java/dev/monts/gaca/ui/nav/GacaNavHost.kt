@@ -43,6 +43,8 @@ import dev.monts.gaca.ui.chat.ChatListScreen
 import dev.monts.gaca.ui.chat.ChatListViewModel
 import dev.monts.gaca.ui.chatthread.ChatThreadScreen
 import dev.monts.gaca.ui.chatthread.ChatThreadViewModel
+import dev.monts.gaca.ui.crewdetail.CrewDetailScreen
+import dev.monts.gaca.ui.crewdetail.CrewDetailViewModel
 import dev.monts.gaca.ui.daily.DailyScreen
 import dev.monts.gaca.ui.daily.DailyViewModel
 import dev.monts.gaca.ui.detail.AlertDetailScreen
@@ -67,6 +69,7 @@ private const val ROUTE_INBOX = "inbox"
 private const val ROUTE_CHAT_LIST = "chat"
 private const val ROUTE_SKILLS = "skills"
 private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_CREW_DETAIL = "crew/{name}"
 private const val ROUTE_DETAIL = "detail/{alertId}"
 private const val ROUTE_NEW_DELEGATION = "new-delegation"
 private const val ROUTE_CHAT_THREAD = "chat-thread/{sessionId}?prefill={prefill}"
@@ -242,6 +245,25 @@ fun GacaNavHost(
                 vm,
                 onBack = { navController.popBackStack() },
                 onOpenAlert = { alertId -> navController.navigate("detail/$alertId") },
+                onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
+            )
+        }
+        composable(
+            ROUTE_CREW_DETAIL,
+            arguments = listOf(navArgument("name") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val crewName = backStackEntry.arguments?.getString("name").orEmpty()
+            val vm = viewModel<CrewDetailViewModel>(
+                factory = viewModelFactory {
+                    initializer { CrewDetailViewModel(crewName, container.crewProfileRepository, container.sessionsRepository) }
+                },
+            )
+            CrewDetailScreen(
+                vm,
+                onBack = { navController.popBackStack() },
+                onOpenThread = { sessionId, prefill ->
+                    navController.navigate("chat-thread/$sessionId?prefill=${android.net.Uri.encode(prefill)}")
+                },
             )
         }
         composable(
@@ -274,7 +296,11 @@ fun GacaNavHost(
                     initializer { SettingsViewModel(container.settingsStore, container.authRepository, container.pushRepository) }
                 },
             )
-            SettingsScreen(vm, onBack = { navController.popBackStack() })
+            SettingsScreen(
+                vm,
+                onBack = { navController.popBackStack() },
+                onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
+            )
         }
     }
 }

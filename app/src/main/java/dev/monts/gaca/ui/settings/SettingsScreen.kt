@@ -73,7 +73,7 @@ private val CREW_COLOR_PALETTE = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew: (String) -> Unit) {
     val state by viewModel.uiState.collectAsState()
 
     Column(
@@ -165,7 +165,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
 
         Spacer(Modifier.height(16.dp))
         if (agentMember != null) {
-            CrewRow(member = agentMember, state = state, viewModel = viewModel)
+            CrewRow(member = agentMember, state = state, viewModel = viewModel, onOpenCrew = onOpenCrew)
         }
 
         Spacer(Modifier.height(32.dp))
@@ -195,6 +195,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 member = member,
                 state = state,
                 viewModel = viewModel,
+                onOpenCrew = onOpenCrew,
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -350,7 +351,7 @@ private fun CrewAvatar(member: CrewMember) {
  * its edit form. The left border strip is that crew member's own color, same
  * as the avatar — two reinforcing cues for "who is this." */
 @Composable
-private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: SettingsViewModel) {
+private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: SettingsViewModel, onOpenCrew: (String) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -402,7 +403,7 @@ private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: Setti
                     }
                 }
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onOpenCrew(member.name) }) {
                     CrewAvatar(member)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
@@ -420,6 +421,12 @@ private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: Setti
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "Details",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HeaderAccent,
+                        modifier = Modifier.clickable { onOpenCrew(member.name) },
+                    )
                     if (!member.isDefault) {
                         Text(
                             "Make default",

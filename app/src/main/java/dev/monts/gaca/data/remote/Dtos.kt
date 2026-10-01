@@ -284,3 +284,50 @@ data class BriefingDto(
     val sections: List<BriefingSectionDto> = emptyList(),
     @SerialName("updated_at") val updatedAt: String? = null,
 )
+
+
+/** GET /crew/{name}/profile — GACA's own picture of how a crew member is set up
+ * (gaca-api schemas/crew_profile.py). Display only. */
+@Serializable
+data class CrewProfileDto(
+    val name: String,
+    val color: String,
+    @SerialName("is_default") val isDefault: Boolean = false,
+    val status: String = "offline",
+    val engine: String? = null,
+    val model: ProfileModelDto? = null,
+    val channels: List<ProfileChannelDto> = emptyList(),
+    @SerialName("skill_count") val skillCount: Int = 0,
+    @SerialName("skill_categories") val skillCategories: List<SkillCategoryDto> = emptyList(),
+    val toolsets: List<ProfileToolsetDto> = emptyList(),
+    val jobs: List<ProfileJobDto> = emptyList(),
+    val unavailable: List<String> = emptyList(),
+)
+
+@Serializable
+data class ProfileModelDto(val provider: String? = null, val name: String? = null)
+
+@Serializable
+data class ProfileChannelDto(
+    val name: String,
+    val state: String = "disconnected",
+    @SerialName("needs_attention") val needsAttention: Boolean = false,
+)
+
+@Serializable
+data class SkillCategoryDto(val name: String, val count: Int)
+
+@Serializable
+data class ProfileToolsetDto(val name: String, val label: String, val description: String = "")
+
+@Serializable
+data class ProfileJobDto(
+    val id: String,
+    val name: String,
+    val schedule: String,
+    val enabled: Boolean = true,
+    @SerialName("next_run") val nextRun: String? = null,
+    @SerialName("last_run") val lastRun: String? = null,
+    @SerialName("last_status") val lastStatus: String? = null,
+    val kind: String = "agent",
+)

@@ -73,7 +73,7 @@ import dev.monts.gaca.ui.theme.crewColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenAlert: (String) -> Unit) {
+fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenAlert: (String) -> Unit, onOpenCrew: (String) -> Unit = {}) {
     val state by viewModel.uiState.collectAsState()
     val openSessionId = state.sessionDetail?.session?.id
     // Tell the push service which thread is on screen — only while RESUMED, so a
@@ -125,13 +125,15 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(10.dp))
+            // Tapping the avatar or name opens that crew member's setup.
+            val openCrew = member?.let { m -> Modifier.clickable { onOpenCrew(m.name) } } ?: Modifier
             if (member != null) {
-                Box(Modifier.size(30.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(30.dp).clip(CircleShape).background(accent).then(openCrew), contentAlignment = Alignment.Center) {
                     Text(member.name.take(2).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = OnAccent)
                 }
                 Spacer(Modifier.width(10.dp))
             }
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).then(openCrew)) {
                 Text(
                     state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
                     style = MaterialTheme.typography.titleMedium,

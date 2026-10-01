@@ -49,6 +49,9 @@ interface GacaApi {
     @GET("briefings")
     suspend fun getBriefing(@Query("date") date: String): BriefingDto
 
+    @GET("crew/{name}/profile")
+    suspend fun getCrewProfile(@Path("name") name: String): CrewProfileDto
+
     @GET("crew/{name}/skills")
     suspend fun getSkills(@Path("name") name: String): List<SkillDto>
 

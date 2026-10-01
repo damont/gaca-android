@@ -9,6 +9,7 @@ import dev.monts.gaca.data.remote.SseClient
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.BriefingRepository
+import dev.monts.gaca.data.repo.CrewProfileRepository
 import dev.monts.gaca.data.repo.ImageRepository
 import dev.monts.gaca.data.repo.PushRepository
 import dev.monts.gaca.data.repo.SessionsRepository
@@ -65,4 +66,5 @@ class AppContainer(context: Context) {
     val sessionsRepository = SessionsRepository(api, sseClient, imageRepository)
     val skillsRepository = SkillsRepository(api)
     val briefingRepository = BriefingRepository(api)
+    val crewProfileRepository = CrewProfileRepository(api)
 }
