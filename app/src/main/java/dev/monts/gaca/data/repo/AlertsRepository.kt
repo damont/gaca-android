@@ -4,6 +4,7 @@ import dev.monts.gaca.data.remote.AlertCreateRequest
 import dev.monts.gaca.data.remote.AlertDelegateRequest
 import dev.monts.gaca.data.remote.AlertResolveRequest
 import dev.monts.gaca.data.remote.AlertSnoozeRequest
+import dev.monts.gaca.data.remote.AlertTakeToChatRequest
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.util.friendlyMessage
 import retrofit2.HttpException
@@ -45,6 +46,14 @@ class AlertsRepository(private val api: GacaApi) {
     suspend fun snooze(id: String, untilIso: String): Alert =
         api.snoozeAlert(id, AlertSnoozeRequest(untilIso)).toDomain()
 
+    /** Opens the chat for an alert WITHOUT sending anything to the crew member: the API creates
+     * the session, marks the alert handled, and returns [TakeToChat.draft] — the text to pre-fill
+     * in the message box (null when just reopening an existing chat). */
+    suspend fun takeToChat(id: String, suggestedActionIndex: Int?, crew: String? = null): TakeToChat =
+        api.takeAlertToChat(id, AlertTakeToChatRequest(suggestedActionIndex, crew)).let {
+            TakeToChat(it.alert.toDomain(), it.sessionId, it.draft)
+        }
+
     suspend fun delegate(
         id: String,
         instruction: String?,
@@ -52,6 +61,9 @@ class AlertsRepository(private val api: GacaApi) {
         crew: String? = null,
     ): Alert = api.delegateAlert(id, AlertDelegateRequest(instruction, suggestedActionIndex, crew)).toDomain()
 }
+
+/** What taking an alert to chat returns: the (now handled) alert, the chat to open, and a draft to pre-fill. */
+data class TakeToChat(val alert: Alert, val sessionId: String, val draft: String?)
 
 /** api-contract.md §6: a 409 means the alert moved underneath you — refetch and re-render, don't retry the action. */
 fun Throwable.isStaleTransition(): Boolean = this is HttpException && code() == 409

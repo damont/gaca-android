@@ -72,6 +72,20 @@ data class AlertDelegateRequest(
     val crew: String? = null,
 )
 
+/** POST /alerts/{id}/take-to-chat — opens the chat and returns a draft; nothing is sent. */
+@Serializable
+data class AlertTakeToChatRequest(
+    @SerialName("suggested_action_index") val suggestedActionIndex: Int? = null,
+    val crew: String? = null,
+)
+
+@Serializable
+data class TakeToChatDto(
+    val alert: AlertDto,
+    @SerialName("session_id") val sessionId: String,
+    val draft: String? = null,
+)
+
 @Serializable
 data class RegisterRequest(
     val name: String,

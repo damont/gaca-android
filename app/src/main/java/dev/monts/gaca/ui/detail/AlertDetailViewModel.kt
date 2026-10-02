@@ -45,6 +45,9 @@ data class AlertDetailUiState(
      * creates the session), then this is set so the screen navigates into the real thread. */
     val openingChat: Boolean = false,
     val openChatSessionId: String? = null,
+    /** Text to pre-fill in that chat's message box — the alert's own words, for the person to
+     * edit and send (nothing has been sent). Null when just reopening an existing chat. */
+    val openChatDraft: String? = null,
 )
 
 class AlertDetailViewModel(
@@ -119,29 +122,30 @@ class AlertDetailViewModel(
         "Snoozed for ${option.label.lowercase()}"
     }
 
-    fun pickSuggestedAction(index: Int) = resolve(
-        onError = Throwable::delegateErrorMessage,
-    ) {
-        repo.delegate(alertId, instruction = null, suggestedActionIndex = index, crew = _uiState.value.selectedCrew)
-        "Sent to Hermes — new session starting"
-    }
+    /** Tapping one of "Hermes suggests": opens the chat with that suggestion's text ready to
+     * edit — nothing is sent to Hermes until the person sends it. */
+    fun pickSuggestedAction(index: Int) = takeToChat(index)
 
-    /** Navigates into the real chat thread — delegating first (via the same resolution
-     * order the suggested-action picker uses, [_uiState.value.selectedCrew]) only if
-     * this alert hasn't been delegated yet, since that's what creates the session at all. */
-    fun openFullChat() {
-        val alert = _uiState.value.alert ?: return
-        val existingSessionId = alert.sessionId
-        if (existingSessionId != null) {
-            _uiState.update { it.copy(openChatSessionId = existingSessionId) }
-            return
-        }
+    /** "Take this to chat": same, with the alert's own title and details as the draft. */
+    fun openFullChat() = takeToChat(null)
+
+    /** The API creates (or reuses) the chat, marks the alert handled, and returns the draft —
+     * this just carries it to the thread. Delegation, which sends right away, stays for the
+     * "New delegation" screen where the person has already typed an instruction. */
+    private fun takeToChat(suggestedActionIndex: Int?) {
         if (_uiState.value.openingChat) return
         viewModelScope.launch {
             _uiState.update { it.copy(openingChat = true, error = null) }
             try {
-                val updated = repo.delegate(alertId, instruction = null, suggestedActionIndex = null, crew = _uiState.value.selectedCrew)
-                _uiState.update { it.copy(alert = updated, openingChat = false, openChatSessionId = updated.sessionId) }
+                val result = repo.takeToChat(alertId, suggestedActionIndex, _uiState.value.selectedCrew)
+                _uiState.update {
+                    it.copy(
+                        alert = result.alert,
+                        openingChat = false,
+                        openChatSessionId = result.sessionId,
+                        openChatDraft = result.draft,
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(openingChat = false, error = e.delegateErrorMessage()) }
             }
@@ -152,7 +156,7 @@ class AlertDetailViewModel(
      * ViewModel can outlive a round trip into the thread and back, so leaving it set would
      * re-trigger the navigation every time (same class of bug as ChatListViewModel's
      * createdSessionId). */
-    fun consumeOpenChat() = _uiState.update { it.copy(openChatSessionId = null) }
+    fun consumeOpenChat() = _uiState.update { it.copy(openChatSessionId = null, openChatDraft = null) }
 
     fun dismiss() = resolve {
         val note = _uiState.value.noteText.ifBlank { null }

@@ -279,7 +279,16 @@ fun GacaNavHost(
             AlertDetailScreen(
                 vm,
                 onBack = { navController.popBackStack() },
-                onOpenChat = { sessionId -> navController.navigate("chat-thread/$sessionId") },
+                // The alert is handled the moment we move to chat, so Back from the chat
+                // should land in the inbox, not on a finished alert: pop the detail screen.
+                onOpenChat = { sessionId, draft ->
+                    val route = if (draft.isNullOrBlank()) {
+                        "chat-thread/$sessionId"
+                    } else {
+                        "chat-thread/$sessionId?prefill=${android.net.Uri.encode(draft)}"
+                    }
+                    navController.navigate(route) { popUpTo(ROUTE_DETAIL) { inclusive = true } }
+                },
             )
         }
         composable(ROUTE_NEW_DELEGATION) {

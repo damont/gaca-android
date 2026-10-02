@@ -64,7 +64,7 @@ private fun severityLabel(severity: Severity): String = when (severity) {
 fun AlertDetailScreen(
     viewModel: AlertDetailViewModel,
     onBack: () -> Unit,
-    onOpenChat: (String) -> Unit,
+    onOpenChat: (sessionId: String, draft: String?) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -75,7 +75,7 @@ fun AlertDetailScreen(
     LaunchedEffect(state.openChatSessionId) {
         val sessionId = state.openChatSessionId
         if (sessionId != null) {
-            onOpenChat(sessionId)
+            onOpenChat(sessionId, state.openChatDraft)
             viewModel.consumeOpenChat() // otherwise coming back here re-fires this every time
         }
     }
@@ -259,11 +259,10 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
             }
         }
 
-        // "Open full chat" — the other half of the bidirectional alert↔chat link
-        // (api-contract.md §6): delegates first if this alert hasn't been yet
-        // (that's what creates the session), then drops straight into the real
-        // thread. The only way to keep talking to this alert's crew member now —
-        // there's no separate quick-ask box anymore, just this.
+        // "Take this to chat" — the other half of the bidirectional alert↔chat link
+        // (api-contract.md §6): the API opens (or reuses) the chat, marks the alert
+        // handled, and hands back a draft that lands in the chat's message box for the
+        // person to edit and send. The way to keep talking to this alert's crew member.
         val chatCrewMember = state.crew.firstOrNull { it.name == state.selectedCrew }
         if (state.selectedCrew != null) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(BorderColor))
@@ -284,12 +283,12 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
                 } else {
                     Column {
                         Text(
-                            "Open full chat with ${state.selectedCrew} →",
+                            "Take this to chat with ${state.selectedCrew} →",
                             style = MaterialTheme.typography.labelLarge,
                             color = OnAccent,
                         )
                         Text(
-                            "Go back and forth, see everything it does, ask follow-ups.",
+                            "Opens the chat with this alert ready to edit — nothing is sent until you send it.",
                             style = MaterialTheme.typography.bodySmall,
                             color = OnAccent.copy(alpha = 0.85f),
                             modifier = Modifier.padding(top = 2.dp),

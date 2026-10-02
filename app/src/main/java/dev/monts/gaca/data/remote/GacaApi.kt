@@ -78,6 +78,9 @@ interface GacaApi {
     @POST("alerts/{id}/snooze")
     suspend fun snoozeAlert(@Path("id") id: String, @Body body: AlertSnoozeRequest): AlertDto
 
+    @POST("alerts/{id}/take-to-chat")
+    suspend fun takeAlertToChat(@Path("id") id: String, @Body body: AlertTakeToChatRequest): TakeToChatDto
+
     @POST("alerts/{id}/delegate")
     suspend fun delegateAlert(@Path("id") id: String, @Body body: AlertDelegateRequest): AlertDto
 
