@@ -315,7 +315,17 @@ data class CrewProfileDto(
     @SerialName("skill_categories") val skillCategories: List<SkillCategoryDto> = emptyList(),
     val toolsets: List<ProfileToolsetDto> = emptyList(),
     val jobs: List<ProfileJobDto> = emptyList(),
+    /** What this crew member is dedicated to doing; null means it couldn't be read. */
+    val purpose: ProfilePurposeDto? = null,
     val unavailable: List<String> = emptyList(),
+)
+
+@Serializable
+data class ProfilePurposeDto(
+    val summary: String? = null,
+    @SerialName("summary_source") val summarySource: String? = null,
+    val instructions: String? = null,
+    @SerialName("is_generic") val isGeneric: Boolean = true,
 )
 
 @Serializable

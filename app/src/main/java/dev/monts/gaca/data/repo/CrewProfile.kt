@@ -18,9 +18,15 @@ data class CrewProfile(
     val skillCategories: List<Pair<String, Int>>,
     val toolsets: List<ProfileToolset>,
     val jobs: List<ProfileJob>,
+    /** What it is dedicated to doing — `null` when the API couldn't read it (different from a generic assistant). */
+    val purpose: CrewPurpose?,
     /** Parts the API couldn't read ("scheduled jobs"), so we can say so instead of showing an empty list as fact. */
     val unavailable: List<String>,
 )
+
+/** [summary] is the API's one-line version; [instructions] the full standing instructions;
+ * [isGeneric] means nothing specific was ever set up (a general assistant). */
+data class CrewPurpose(val summary: String?, val instructions: String?, val isGeneric: Boolean)
 
 data class ProfileChannel(val name: String, val connected: Boolean, val needsAttention: Boolean)
 data class ProfileToolset(val label: String, val description: String)
@@ -47,6 +53,7 @@ fun CrewProfileDto.toDomain() = CrewProfile(
     skillCategories = skillCategories.map { it.name to it.count },
     toolsets = toolsets.map { ProfileToolset(it.label, it.description) },
     jobs = jobs.map { ProfileJob(it.name, it.schedule, it.enabled, it.nextRun, it.lastRun, it.lastStatus, it.kind == "agent") },
+    purpose = purpose?.let { CrewPurpose(it.summary, it.instructions, it.isGeneric) },
     unavailable = unavailable,
 )
 

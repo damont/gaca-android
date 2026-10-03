@@ -31,6 +31,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
+import dev.monts.gaca.data.repo.CrewPurpose
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -149,6 +155,9 @@ fun CrewDetailScreen(
                                 color = SeverityWarnDot,
                             )
                         }
+                    }
+                    profile.purpose?.let { purpose ->
+                        item { PurposeCard(purpose, profile.name) }
                     }
                     if (profile.modelName != null) {
                         item {
@@ -276,5 +285,49 @@ private fun JobRow(job: ProfileJob) {
             if (job.usesModel) null else "Runs a script, no AI",
         ).joinToString(" · ")
         if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = TextMeta)
+    }
+}
+
+/** What this crew member is dedicated to doing: the API's one-line summary up top, the full
+ * standing instructions a tap away. A crew member with nothing specific set up says so plainly
+ * instead of showing an empty card. */
+@Composable
+private fun PurposeCard(purpose: CrewPurpose, name: String) {
+    InfoCard("Dedicated to") {
+        if (purpose.isGeneric) {
+            Text(
+                "A general assistant — nothing specific has been set up for $name.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextPrimary,
+            )
+            Text(
+                "Tell it in chat what it should focus on, and it can take that on as its job.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMeta,
+            )
+            return@InfoCard
+        }
+        purpose.summary?.let {
+            Text(it, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        }
+        val instructions = purpose.instructions
+        if (!instructions.isNullOrBlank()) {
+            var expanded by remember { mutableStateOf(false) }
+            SelectionContainer {
+                Text(
+                    instructions,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    maxLines = if (expanded) Int.MAX_VALUE else 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                if (expanded) "Show less" else "Show full instructions",
+                style = MaterialTheme.typography.labelLarge,
+                color = HeaderAccent,
+                modifier = Modifier.clickable { expanded = !expanded },
+            )
+        }
     }
 }
