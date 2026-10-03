@@ -30,6 +30,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -152,6 +155,37 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         )
         if (!alert.body.isNullOrBlank()) {
             Text(alert.body, style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+        }
+
+        // Pages that go with this alert — the calendar week, the source email. Shown right under
+        // the body since opening one is usually the first thing to do.
+        if (alert.links.isNotEmpty()) {
+            val uriHandler = LocalUriHandler.current
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                alert.links.forEach { link ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SuggestBackground)
+                            // A link the phone can't open must never crash the app.
+                            .clickable { runCatching { uriHandler.openUri(link.url) } }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = HeaderAccent, modifier = Modifier.size(18.dp))
+                        Text(
+                            link.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = HeaderAccent,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
         }
 
         // Whatever the run (or a person) last said about this alert — the

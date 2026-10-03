@@ -28,6 +28,8 @@ data class AlertDto(
     val data: Map<String, JsonElement> = emptyMap(),
     @SerialName("dedupe_key") val dedupeKey: String? = null,
     @SerialName("suggested_actions") val suggestedActions: List<SuggestedActionDto> = emptyList(),
+    /** Web pages that go with this alert; the API always supplies a label. */
+    val links: List<AlertLinkDto> = emptyList(),
     val status: String,
     @SerialName("effective_status") val effectiveStatus: String,
     @SerialName("status_changed_at") val statusChangedAt: String,
@@ -35,6 +37,12 @@ data class AlertDto(
     @SerialName("session_id") val sessionId: String? = null,
     @SerialName("resolution_note") val resolutionNote: String? = null,
     @SerialName("parent_alert_id") val parentAlertId: String? = null,
+)
+
+@Serializable
+data class AlertLinkDto(
+    val url: String,
+    val label: String? = null,
 )
 
 @Serializable

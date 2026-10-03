@@ -35,7 +35,12 @@ data class Alert(
     val resolutionNote: String?,
     val suggestedActions: List<SuggestedAction>,
     val dataRows: List<Pair<String, String>>,
+    /** Pages worth opening to act on this alert (the calendar week, the source email...). */
+    val links: List<AlertLink> = emptyList(),
 )
+
+/** A web page that goes with an alert. [label] is what to show; the API always provides one. */
+data class AlertLink(val url: String, val label: String)
 
 fun AlertDto.toDomain(): Alert = Alert(
     id = id,
@@ -56,6 +61,10 @@ fun AlertDto.toDomain(): Alert = Alert(
     resolutionNote = resolutionNote,
     suggestedActions = suggestedActions.map { SuggestedAction(it.label, it.prompt) },
     dataRows = data.entries.map { (key, value) -> key to renderJsonValue(value) },
+    // Only web addresses ever become tappable, whatever the server says.
+    links = links
+        .filter { it.url.startsWith("https://", ignoreCase = true) || it.url.startsWith("http://", ignoreCase = true) }
+        .map { AlertLink(it.url, it.label ?: it.url) },
 )
 
 /** One turn in a delegated alert's session transcript — the "back and forth" with the crew member. */

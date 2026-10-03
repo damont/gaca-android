@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -337,6 +338,11 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Spacer(Modifier.width(8.dp))
+                if (alert.links.isNotEmpty()) {
+                    // A hint that there's a page to open in the alert itself.
+                    Icon(Icons.Filled.Link, contentDescription = "Has a link", tint = TextMeta, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
                 Text(
                     dev.monts.gaca.util.relativeTime(alert.createdAt),
                     style = MaterialTheme.typography.bodySmall,
