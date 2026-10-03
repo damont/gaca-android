@@ -51,6 +51,7 @@ import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SuggestBackground
+import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
@@ -144,6 +145,23 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
                     .padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
                 Text(alert.kind, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            }
+            // Which crew member posted this — the same chip the inbox row shows. It's also who the
+            // chat opens with ("Take this to chat"), so it's worth seeing before you tap.
+            alert.crew?.let { crewName ->
+                val member = state.crew.firstOrNull { it.name == crewName }
+                val chipColor = member?.let { crewColor(it.color) } ?: TextSecondary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(member?.let { crewChipTint(it.color) } ?: ChipBackground)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(chipColor))
+                    Text(crewName, style = MaterialTheme.typography.labelSmall, color = chipColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                }
             }
         }
 
