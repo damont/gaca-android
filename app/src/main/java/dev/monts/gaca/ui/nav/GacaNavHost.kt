@@ -74,7 +74,8 @@ import dev.monts.gaca.ui.theme.TextSecondary
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_DAILY = "daily"
 private const val ROUTE_INBOX = "inbox"
-private const val ROUTE_CHAT_LIST = "chat"
+private const val ROUTE_CHAT = "chat"
+private const val ROUTE_CHAT_HISTORY = "chat-history"
 private const val ROUTE_SKILLS = "skills"
 private const val ROUTE_ARTIFACTS = "artifacts"
 private const val ROUTE_ARTIFACT = "artifact/{artifactId}"
@@ -89,9 +90,9 @@ private const val ROUTE_CHAT_THREAD = "chat-thread/{sessionId}?prefill={prefill}
 private data class BottomNavTab(val route: String, val label: String, val icon: ImageVector)
 
 private val bottomNavTabs = listOf(
+    BottomNavTab(ROUTE_CHAT, "Chat", Icons.AutoMirrored.Filled.Chat),
     BottomNavTab(ROUTE_DAILY, "Today", Icons.Filled.WbSunny),
     BottomNavTab(ROUTE_INBOX, "Inbox", Icons.Filled.Inbox),
-    BottomNavTab(ROUTE_CHAT_LIST, "Chat", Icons.AutoMirrored.Filled.Chat),
     BottomNavTab(ROUTE_ARTIFACTS, "Artifacts", Icons.Filled.Dashboard),
     BottomNavTab(ROUTE_SKILLS, "Skills", Icons.Filled.AutoAwesome),
 )
@@ -135,7 +136,7 @@ fun GacaNavHost(
             // one restoreSession() already resolved before NavHost's
             // startDestination was picked.
             if (!hasSeenUser) {
-                navController.navigate(ROUTE_INBOX) { popUpTo(0) { inclusive = true } }
+                navController.navigate(ROUTE_CHAT) { popUpTo(0) { inclusive = true } }
             }
             hasSeenUser = true
         } else if (hasSeenUser) {
@@ -184,7 +185,7 @@ fun GacaNavHost(
     CompositionLocalProvider(LocalArtifactLinks provides artifactLinks) {
     NavHost(
         navController = navController,
-        startDestination = if (authState.user != null) ROUTE_INBOX else ROUTE_LOGIN,
+        startDestination = if (authState.user != null) ROUTE_CHAT else ROUTE_LOGIN,
     ) {
         composable(ROUTE_LOGIN) {
             val vm = viewModel<LoginViewModel>(
@@ -215,19 +216,45 @@ fun GacaNavHost(
                 )
             }
         }
-        composable(ROUTE_CHAT_LIST) {
+        composable(ROUTE_CHAT) {
+            // The Chat tab is a draft: a blank new chat with the last-used crew member. No session
+            // exists on the server until something is sent.
+            val vm = viewModel<ChatThreadViewModel>(
+                factory = viewModelFactory {
+                    initializer {
+                        ChatThreadViewModel(
+                            null,
+                            container.sessionsRepository,
+                            container.authRepository,
+                            container.alertsRepository,
+                        )
+                    }
+                },
+            )
+            TabbedScreen(navController, currentRoute) {
+                ChatThreadScreen(
+                    vm,
+                    onBack = {},
+                    onOpenAlert = { alertId -> navController.navigate("detail/$alertId") },
+                    onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
+                    showBack = false,
+                    onOpenHistory = { navController.navigate(ROUTE_CHAT_HISTORY) },
+                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                    onOpenSession = { sessionId -> navController.navigate("chat-thread/$sessionId") },
+                )
+            }
+        }
+        composable(ROUTE_CHAT_HISTORY) {
             val vm = viewModel<ChatListViewModel>(
                 factory = viewModelFactory {
                     initializer { ChatListViewModel(container.sessionsRepository, container.authRepository) }
                 },
             )
-            TabbedScreen(navController, currentRoute) {
-                ChatListScreen(
-                    viewModel = vm,
-                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                    onOpenThread = { sessionId -> navController.navigate("chat-thread/$sessionId") },
-                )
-            }
+            ChatListScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+                onOpenThread = { sessionId -> navController.navigate("chat-thread/$sessionId") },
+            )
         }
         composable(ROUTE_ARTIFACTS) {
             val vm = viewModel<ArtifactsViewModel>(

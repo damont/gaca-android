@@ -22,18 +22,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,117 +53,105 @@ import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 import dev.monts.gaca.util.relativeTime
 
+/** Every past chat, searchable. New chats are started from the Chat tab itself (a draft that
+ * only becomes a saved session on its first send), so there is no "new chat" button here. */
 @Composable
 fun ChatListScreen(
     viewModel: ChatListViewModel,
-    onOpenSettings: () -> Unit,
+    onBack: () -> Unit,
     onOpenThread: (String) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    // Re-fetches every time this screen is navigated back to, not just once at
-    // construction — this ViewModel outlives a round trip into a thread and back
-    // (same NavBackStackEntry), so without this a session created in that round
-    // trip would never show up until the app restarted. Same pattern InboxScreen
-    // already uses for its own pull-to-refresh-adjacent reload.
+    // Re-fetches each time this screen is shown — the ViewModel outlives a round trip into a thread.
     LaunchedEffect(Unit) { viewModel.refresh() }
 
-    LaunchedEffect(state.createdSessionId) {
-        val createdId = state.createdSessionId
-        if (createdId != null) {
-            onOpenThread(createdId)
-            viewModel.consumeCreatedSession() // otherwise coming back here re-fires this every time
-        }
+    val crewByName = state.crew.associateBy { it.name }
+    val needle = state.query.trim()
+    val shown = if (needle.isEmpty()) state.sessions else state.sessions.filter { s ->
+        listOfNotNull(s.summary, s.title, s.preview, s.crew).any { it.contains(needle, ignoreCase = true) }
     }
 
-    val crewByName = state.crew.associateBy { it.name }
-
-    Box(
+    Column(
         Modifier
             .fillMaxSize()
             .background(PageBackground)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp, top = 20.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+        Row(
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 22.dp, top = 20.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
             ) {
-                Column {
-                    Text("Chat", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
-                    val count = state.sessions.size
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Chat history", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
+                val count = state.sessions.size
+                if (count > 0) {
                     Text(
-                        if (count == 0) "" else "$count conversation${if (count == 1) "" else "s"}",
+                        "$count conversation${if (count == 1) "" else "s"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMeta,
                     )
                 }
-                IconButton(onClick = onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary)
-                }
-            }
-
-            val errorText = state.error
-            if (errorText != null) {
-                Text(
-                    errorText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SeverityUrgentDot,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
-                )
-            }
-
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = HeaderAccent)
-                    }
-                    state.sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No conversations yet — tap \"New chat\" to start one.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextMeta,
-                            modifier = Modifier.padding(40.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                    }
-                    else -> LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(state.sessions, key = { it.id }) { session ->
-                            ChatSessionRow(session, crewByName[session.crew], onTap = { onOpenThread(session.id) })
-                        }
-                        item { Spacer(Modifier.height(72.dp)) } // clears the "New chat" pill
-                    }
-                }
             }
         }
 
-        FloatingActionButton(
-            onClick = viewModel::openCrewPicker,
-            modifier = Modifier.align(Alignment.BottomStart).padding(22.dp),
-            containerColor = HeaderAccent,
-            contentColor = OnAccent,
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "Start a new chat")
-        }
-    }
-
-    if (state.showCrewPicker) {
-        CrewPickerSheet(
-            crew = state.crew,
-            creating = state.creatingSession,
-            onPick = viewModel::startSession,
-            onDismiss = viewModel::dismissCrewPicker,
+        OutlinedTextField(
+            value = state.query,
+            onValueChange = viewModel::setQuery,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+            placeholder = { Text("Search chats…") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = TextMeta) },
+            singleLine = true,
         )
+
+        val errorText = state.error
+        if (errorText != null) {
+            Text(
+                errorText,
+                style = MaterialTheme.typography.bodySmall,
+                color = SeverityUrgentDot,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
+            )
+        }
+
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                state.isLoading && state.sessions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = HeaderAccent)
+                }
+                shown.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (needle.isEmpty()) "No conversations yet." else "No chats match \"$needle\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextMeta,
+                        modifier = Modifier.padding(40.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+                else -> LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(shown, key = { it.id }) { session ->
+                        ChatSessionRow(session, crewByName[session.crew], onTap = { onOpenThread(session.id) })
+                    }
+                    item { Spacer(Modifier.height(16.dp)) }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: () -> Unit) {
+internal fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: () -> Unit) {
     val color = crewMember?.let { crewColor(it.color) } ?: TextSecondary
     val background = crewMember?.let { crewChipTint(it.color) } ?: ChipBackground
     Row(
@@ -222,66 +206,6 @@ private fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: () 
                     Icon(Icons.Filled.Link, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
                     Text("from an alert", style = MaterialTheme.typography.labelSmall, color = color)
                 }
-            }
-        }
-    }
-}
-
-/** "5. Choose crew (sheet)" — lists this account's real crew members (name, color,
- * default flag). No fabricated per-member description; the API doesn't have one. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CrewPickerSheet(
-    crew: List<CrewMember>,
-    creating: Boolean,
-    onPick: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
-            Text("Start a chat with…", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            Spacer(Modifier.height(14.dp))
-            if (crew.isEmpty()) {
-                Text("No crew configured yet — set one up in Settings first.", style = MaterialTheme.typography.bodySmall, color = TextMeta)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    crew.forEach { member ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(crewChipTint(member.color))
-                                .clickable(enabled = !creating) { onPick(member.name) }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Box(
-                                Modifier.size(40.dp).clip(CircleShape).background(crewColor(member.color)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    member.name.take(2).replaceFirstChar { it.uppercase() },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = OnAccent,
-                                )
-                            }
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(member.name, style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-                                if (member.isDefault) {
-                                    Box(Modifier.clip(RoundedCornerShape(8.dp)).background(OnAccent).padding(horizontal = 7.dp, vertical = 1.dp)) {
-                                        Text("DEFAULT", style = MaterialTheme.typography.labelSmall, color = crewColor(member.color))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (creating) {
-                Spacer(Modifier.height(12.dp))
-                CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             }
         }
     }

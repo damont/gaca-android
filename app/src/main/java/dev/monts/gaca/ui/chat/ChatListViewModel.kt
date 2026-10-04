@@ -18,6 +18,9 @@ data class ChatListUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
 
+    /** Search text typed on the history screen; the screen filters on it. */
+    val query: String = "",
+
     /** For coloring each row and for the "start a chat with…" sheet. */
     val crew: List<CrewMember> = emptyList(),
     val showCrewPicker: Boolean = false,
@@ -60,6 +63,8 @@ class ChatListViewModel(
             }
         }
     }
+
+    fun setQuery(text: String) = _uiState.update { it.copy(query = text) }
 
     fun openCrewPicker() = _uiState.update { it.copy(showCrewPicker = true) }
     fun dismissCrewPicker() = _uiState.update { it.copy(showCrewPicker = false) }

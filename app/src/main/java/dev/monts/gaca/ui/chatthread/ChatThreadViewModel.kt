@@ -9,11 +9,13 @@ import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.Session
 import dev.monts.gaca.data.repo.SessionDetail
 import dev.monts.gaca.data.repo.SessionsRepository
 import dev.monts.gaca.util.PhotoPrep
 import dev.monts.gaca.util.PreparedPhoto
 import dev.monts.gaca.util.friendlyMessage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +60,13 @@ data class ChatThreadUiState(
     /** Set only when this session was opened by delegating an alert (`Session.alertId` —
      * api-contract.md §6's bidirectional link) — the "from alert" pill's label, best-effort. */
     val fromAlertTitle: String? = null,
+
+    /** A new chat that isn't saved yet: there is no session until the first send creates one. */
+    val isDraft: Boolean = false,
+    /** Draft only: who the new chat can go to, who it will go to, and the latest chats to jump back into. */
+    val crew: List<CrewMember> = emptyList(),
+    val selectedCrew: String? = null,
+    val recents: List<Session> = emptyList(),
 )
 
 @Serializable
@@ -88,25 +97,92 @@ private data class EventEnvelope(@SerialName("run_id") val runId: String? = null
  * trusting the client's own reconstruction as the source of truth.
  */
 class ChatThreadViewModel(
-    private val sessionId: String,
+    /** `null` opens a draft: nothing is created on the server until the first message is sent. */
+    initialSessionId: String?,
     private val sessionsRepository: SessionsRepository,
     private val authRepository: AuthRepository,
     private val alertsRepository: AlertsRepository,
     /** Pre-fills the input, e.g. arriving from a tapped skill in the Skills tab —
      * the user still has to actually send it, this just saves the typing. */
     initialMessageText: String? = null,
+    /** Draft only: the crew member to start with; otherwise the one used in the latest chat. */
+    private val initialCrew: String? = null,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ChatThreadUiState(messageText = initialMessageText.orEmpty()))
+    private var sessionId: String? = initialSessionId
+    private var eventsJob: Job? = null
+
+    private val _uiState = MutableStateFlow(
+        ChatThreadUiState(
+            messageText = initialMessageText.orEmpty(),
+            isDraft = initialSessionId == null,
+            isLoading = initialSessionId != null,
+        ),
+    )
     val uiState: StateFlow<ChatThreadUiState> = _uiState.asStateFlow()
 
     private val eventJson = Json { ignoreUnknownKeys = true }
 
     init {
-        load()
-        viewModelScope.launch {
-            sessionsRepository.events(sessionId).collect { event -> handleEvent(event) }
+        val id = sessionId
+        if (id == null) {
+            loadDraft()
+        } else {
+            load()
+            startEvents(id)
         }
+    }
+
+    private fun startEvents(id: String) {
+        eventsJob?.cancel()
+        eventsJob = viewModelScope.launch {
+            sessionsRepository.events(id).collect { event -> handleEvent(event) }
+        }
+    }
+
+    /** Picks who a new chat goes to (an explicit choice, else whoever the latest chat was with,
+     * else the default crew member) and loads the recent chats shown under it. */
+    private fun loadDraft() {
+        viewModelScope.launch {
+            val crew = try { authRepository.getCrew().crew } catch (_: Exception) { emptyList() }
+            val sessions = try { sessionsRepository.listSessions() } catch (_: Exception) { emptyList() }
+            _uiState.update { s ->
+                val candidates = listOfNotNull(s.selectedCrew, initialCrew, sessions.firstNotNullOfOrNull { it.crew })
+                val chosen = candidates.firstOrNull { name -> crew.any { it.name == name } }
+                    ?: (crew.firstOrNull { it.isDefault } ?: crew.firstOrNull())?.name
+                s.copy(
+                    crew = crew,
+                    recents = sessions.take(RECENT_CHATS),
+                    selectedCrew = chosen,
+                    crewMember = crew.firstOrNull { it.name == chosen },
+                )
+            }
+        }
+    }
+
+    /** Draft only: keeps "recent chats" current each time the tab is shown again. */
+    fun refreshRecents() {
+        if (!_uiState.value.isDraft) return
+        viewModelScope.launch {
+            try {
+                val sessions = sessionsRepository.listSessions()
+                _uiState.update { it.copy(recents = sessions.take(RECENT_CHATS)) }
+            } catch (_: Exception) {
+                // keep what's showing
+            }
+        }
+    }
+
+    fun selectCrew(name: String) = _uiState.update { s ->
+        s.copy(selectedCrew = name, crewMember = s.crew.firstOrNull { it.name == name } ?: s.crewMember)
+    }
+
+    /** Leaves the current chat and returns to a fresh draft (defaulting to the crew just used). */
+    fun newChat() {
+        eventsJob?.cancel()
+        sessionId = null
+        _uiState.value = ChatThreadUiState(isDraft = true, isLoading = false)
+        loadDraft()
     }
 
     private fun load() {
@@ -132,8 +208,9 @@ class ChatThreadViewModel(
     }
 
     private suspend fun reloadSession() {
+        val id = sessionId ?: return
         try {
-            val detail = sessionsRepository.getSession(sessionId)
+            val detail = sessionsRepository.getSession(id)
             _uiState.update { it.copy(sessionDetail = detail, newMessageTick = it.newMessageTick + 1) }
         } catch (e: Exception) {
             _uiState.update { it.copy(error = e.friendlyMessage()) }
@@ -184,8 +261,20 @@ class ChatThreadViewModel(
         _uiState.update { it.copy(sending = true, error = null) }
 
         viewModelScope.launch {
+            // First send of a draft: this is the moment the chat becomes a saved session.
+            val id = sessionId ?: try {
+                val created = sessionsRepository.createSession(crew = before.selectedCrew)
+                sessionId = created.id
+                _uiState.update { it.copy(isDraft = false, sessionDetail = SessionDetail(created, emptyList())) }
+                startEvents(created.id)
+                created.id
+            } catch (e: Exception) {
+                _uiState.update { it.copy(sending = false, error = e.friendlyMessage()) }
+                return@launch
+            }
+
             val photoIds = try {
-                photos.map { sessionsRepository.uploadPhoto(sessionId, it.jpeg) }
+                photos.map { sessionsRepository.uploadPhoto(id, it.jpeg) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(sending = false, error = e.friendlyMessage()) }
                 return@launch
@@ -211,7 +300,7 @@ class ChatThreadViewModel(
             }
 
             try {
-                sessionsRepository.sendMessage(sessionId, text, photoIds)
+                sessionsRepository.sendMessage(id, text, photoIds)
                 // Replaces the optimistic entry with the server's own persisted copy. The
                 // reply itself streams in over the event collector in init{}, not from here.
                 reloadSession()
@@ -300,5 +389,9 @@ class ChatThreadViewModel(
             }
             else -> Unit // e.g. assistant.reasoning — nothing rendered for it yet
         }
+    }
+
+    private companion object {
+        const val RECENT_CHATS = 5
     }
 }

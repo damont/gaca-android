@@ -29,7 +29,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import dev.monts.gaca.ui.chat.ChatSessionRow
+import dev.monts.gaca.ui.theme.TextSecondary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -73,8 +80,23 @@ import dev.monts.gaca.ui.theme.crewColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenAlert: (String) -> Unit, onOpenCrew: (String) -> Unit = {}) {
+fun ChatThreadScreen(
+    viewModel: ChatThreadViewModel,
+    onBack: () -> Unit,
+    onOpenAlert: (String) -> Unit,
+    onOpenCrew: (String) -> Unit = {},
+    /** False when this is the Chat tab itself (nothing to go back to). */
+    showBack: Boolean = true,
+    /** Tab only: opens the searchable list of every past chat. */
+    onOpenHistory: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null,
+    onOpenSession: (String) -> Unit = {},
+) {
     val state by viewModel.uiState.collectAsState()
+    LifecycleResumeEffect(state.isDraft) {
+        if (state.isDraft) viewModel.refreshRecents()
+        onPauseOrDispose { }
+    }
     val openSessionId = state.sessionDetail?.session?.id
     // Tell the push service which thread is on screen — only while RESUMED, so a
     // backgrounded app still gets its notifications.
@@ -118,11 +140,15 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
             Modifier.fillMaxWidth().padding(start = 14.dp, top = 20.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
+            if (showBack) {
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
+                }
+            } else {
+                Spacer(Modifier.width(8.dp))
             }
             Spacer(Modifier.width(10.dp))
             // Tapping the avatar or name opens that crew member's setup.
@@ -135,13 +161,30 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
             }
             Column(Modifier.weight(1f).then(openCrew)) {
                 Text(
-                    state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
+                    if (state.isDraft) "New chat" else state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                 )
                 val status = state.runStatus
                 if (status != null) {
                     Text(status, style = MaterialTheme.typography.labelSmall, color = accent)
+                }
+            }
+            if (!showBack) {
+                if (!state.isDraft) {
+                    IconButton(onClick = viewModel::newChat) {
+                        Icon(Icons.Filled.Add, contentDescription = "New chat", tint = TextSecondary)
+                    }
+                }
+                if (onOpenHistory != null) {
+                    IconButton(onClick = onOpenHistory) {
+                        Icon(Icons.Filled.History, contentDescription = "Chat history", tint = TextSecondary)
+                    }
+                }
+                if (onOpenSettings != null) {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary)
+                    }
                 }
             }
         }
@@ -175,6 +218,13 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
         }
 
         when {
+            state.isDraft -> DraftBody(
+                state = state,
+                onSelectCrew = viewModel::selectCrew,
+                onOpenSession = onOpenSession,
+                onOpenHistory = onOpenHistory,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
             state.isLoading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = HeaderAccent)
             }
@@ -236,7 +286,7 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
         }
 
         val errorText = state.error
-        if (errorText != null && state.sessionDetail != null) {
+        if (errorText != null && (state.sessionDetail != null || state.isDraft)) {
             Text(
                 errorText,
                 style = MaterialTheme.typography.bodySmall,
@@ -308,6 +358,85 @@ fun ChatThreadScreen(viewModel: ChatThreadViewModel, onBack: () -> Unit, onOpenA
                     CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = OnAccent, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
+/** What a not-yet-saved chat shows: who it will go to, and the latest chats to jump back into. */
+@Composable
+private fun DraftBody(
+    state: ChatThreadUiState,
+    onSelectCrew: (String) -> Unit,
+    onOpenSession: (String) -> Unit,
+    onOpenHistory: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val crewByName = state.crew.associateBy { it.name }
+    LazyColumn(
+        modifier,
+        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (state.crew.size > 1) {
+            item {
+                Text("Chat with", style = MaterialTheme.typography.labelMedium, color = TextMeta)
+            }
+            item {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.crew.forEach { m ->
+                        val selected = m.name == state.selectedCrew
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (selected) crewColor(m.color) else ChipBackground)
+                                .clickable { onSelectCrew(m.name) }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                m.name,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (selected) OnAccent else TextPrimary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                "Type below to start — nothing is saved until you send.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMeta,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+        }
+        if (state.recents.isNotEmpty()) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Recent chats", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                    if (onOpenHistory != null) {
+                        Text(
+                            "Search all",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = HeaderAccent,
+                            modifier = Modifier.clickable(onClick = onOpenHistory).padding(vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+            items(state.recents, key = { it.id }) { session ->
+                ChatSessionRow(session, crewByName[session.crew], onTap = { onOpenSession(session.id) })
+            }
+            if (onOpenHistory != null) {
+                item {
+                    Text(
+                        "See all chats",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = HeaderAccent,
+                        modifier = Modifier.clickable(onClick = onOpenHistory).padding(vertical = 8.dp),
+                    )
                 }
             }
         }
