@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -120,7 +121,10 @@ fun ArtifactViewScreen(
         Modifier
             .fillMaxSize()
             .background(PageBackground)
-            .windowInsetsPadding(WindowInsets.systemBars),
+            .windowInsetsPadding(WindowInsets.systemBars)
+            // Edge-to-edge doesn't resize the window for the keyboard, so the page would sit
+            // under it; shrinking the page's area lets the WebView scroll the focused field into view.
+            .imePadding(),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),

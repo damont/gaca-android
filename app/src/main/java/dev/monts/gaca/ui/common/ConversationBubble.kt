@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.getValue
@@ -82,7 +83,10 @@ fun ConversationBubble(
             }
             val (text, artifactRefs) = remember(message.content) { extractArtifactRefs(message.content) }
             if (text.isNotBlank()) {
-                Text(text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                // Long-press to select and copy, e.g. to paste a reply somewhere else.
+                SelectionContainer {
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                }
             }
             // Pages the crew member made show as tappable chips instead of a raw gaca:// address.
             artifactRefs.forEach { ref -> ArtifactChip(ref.id, ref.label, Modifier.padding(top = 6.dp)) }
