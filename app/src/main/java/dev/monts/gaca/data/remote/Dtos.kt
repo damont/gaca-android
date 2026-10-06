@@ -37,6 +37,8 @@ data class AlertDto(
     @SerialName("session_id") val sessionId: String? = null,
     @SerialName("resolution_note") val resolutionNote: String? = null,
     @SerialName("parent_alert_id") val parentAlertId: String? = null,
+    /** An HTML page (artifact) published for this alert. */
+    @SerialName("artifact_id") val artifactId: String? = null,
 )
 
 @Serializable
@@ -362,4 +364,34 @@ data class ProfileJobDto(
     @SerialName("last_run") val lastRun: String? = null,
     @SerialName("last_status") val lastStatus: String? = null,
     val kind: String = "agent",
+)
+
+// ── Artifacts: HTML pages an agent writes, plus the data they keep ─────────────
+// See gaca-planning/artifacts/api-contract.md.
+
+@Serializable
+data class ArtifactDto(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    val crew: String? = null,
+    @SerialName("session_id") val sessionId: String? = null,
+    @SerialName("alert_id") val alertId: String? = null,
+    val archived: Boolean = false,
+    val version: Int = 1,
+    val rev: Int = 0,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String,
+    @SerialName("last_opened_at") val lastOpenedAt: String? = null,
+)
+
+@Serializable
+data class ArtifactListDto(
+    val artifacts: List<ArtifactDto> = emptyList(),
+)
+
+@Serializable
+data class ArtifactPatchRequest(
+    val archived: Boolean? = null,
+    val title: String? = null,
 )

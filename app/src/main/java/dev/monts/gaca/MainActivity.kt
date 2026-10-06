@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
 
     private val pendingAlertId = mutableStateOf<String?>(null)
     private val pendingSessionId = mutableStateOf<String?>(null)
+    private val pendingArtifactId = mutableStateOf<String?>(null)
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means no future pushes show — nothing to react to here */ }
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         pendingAlertId.value = intent?.getStringExtra(EXTRA_ALERT_ID)
         pendingSessionId.value = intent?.getStringExtra(EXTRA_SESSION_ID)
+        pendingArtifactId.value = artifactIdFrom(intent)
         requestNotificationPermissionIfNeeded()
 
         val container = (application as GacaApp).container
@@ -40,6 +42,8 @@ class MainActivity : ComponentActivity() {
                     onPendingAlertConsumed = { pendingAlertId.value = null },
                     pendingSessionId = pendingSessionId.value,
                     onPendingSessionConsumed = { pendingSessionId.value = null },
+                    pendingArtifactId = pendingArtifactId.value,
+                    onPendingArtifactConsumed = { pendingArtifactId.value = null },
                 )
             }
         }
@@ -51,6 +55,14 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         pendingAlertId.value = intent.getStringExtra(EXTRA_ALERT_ID)
         pendingSessionId.value = intent.getStringExtra(EXTRA_SESSION_ID)
+        pendingArtifactId.value = artifactIdFrom(intent)
+    }
+
+    /** `gaca://artifact/<id>` → the id (ids are 32 hex characters; anything else is ignored). */
+    private fun artifactIdFrom(intent: Intent?): String? {
+        val uri = intent?.data ?: return null
+        if (uri.scheme != "gaca" || uri.host != "artifact") return null
+        return uri.pathSegments.firstOrNull()?.takeIf { Regex("^[0-9a-f]{32}$").matches(it) }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

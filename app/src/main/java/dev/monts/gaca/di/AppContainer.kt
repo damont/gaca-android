@@ -7,6 +7,7 @@ import dev.monts.gaca.data.remote.AuthInterceptor
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.data.remote.SseClient
 import dev.monts.gaca.data.repo.AlertsRepository
+import dev.monts.gaca.data.repo.ArtifactRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.BriefingRepository
 import dev.monts.gaca.data.repo.CrewProfileRepository
@@ -67,4 +68,5 @@ class AppContainer(context: Context) {
     val skillsRepository = SkillsRepository(api)
     val briefingRepository = BriefingRepository(api)
     val crewProfileRepository = CrewProfileRepository(api)
+    val artifactRepository = ArtifactRepository(api, okHttpClient, baseUrl)
 }

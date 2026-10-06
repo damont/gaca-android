@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.ConversationMessage
+import dev.monts.gaca.data.repo.extractArtifactRefs
+import androidx.compose.runtime.remember
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.SuggestBackground
 import dev.monts.gaca.ui.theme.TextMeta
@@ -78,9 +80,12 @@ fun ConversationBubble(
                     )
                 }
             }
-            if (message.content.isNotBlank()) {
-                Text(message.content, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            val (text, artifactRefs) = remember(message.content) { extractArtifactRefs(message.content) }
+            if (text.isNotBlank()) {
+                Text(text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
             }
+            // Pages the crew member made show as tappable chips instead of a raw gaca:// address.
+            artifactRefs.forEach { ref -> ArtifactChip(ref.id, ref.label, Modifier.padding(top = 6.dp)) }
         }
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -341,6 +342,10 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
                 if (alert.links.isNotEmpty()) {
                     // A hint that there's a page to open in the alert itself.
                     Icon(Icons.Filled.Link, contentDescription = "Has a link", tint = TextMeta, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (alert.artifactId != null) {
+                    Icon(Icons.Filled.Dashboard, contentDescription = "Has a page", tint = TextMeta, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(

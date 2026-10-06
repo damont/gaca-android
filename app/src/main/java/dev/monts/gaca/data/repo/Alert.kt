@@ -37,6 +37,8 @@ data class Alert(
     val dataRows: List<Pair<String, String>>,
     /** Pages worth opening to act on this alert (the calendar week, the source email...). */
     val links: List<AlertLink> = emptyList(),
+    /** An HTML page (artifact) made for this alert; the detail screen offers to open it. */
+    val artifactId: String? = null,
 )
 
 /** A web page that goes with an alert. [label] is what to show; the API always provides one. */
@@ -65,6 +67,7 @@ fun AlertDto.toDomain(): Alert = Alert(
     links = links
         .filter { it.url.startsWith("https://", ignoreCase = true) || it.url.startsWith("http://", ignoreCase = true) }
         .map { AlertLink(it.url, it.label ?: it.url) },
+    artifactId = artifactId,
 )
 
 /** One turn in a delegated alert's session transcript — the "back and forth" with the crew member. */

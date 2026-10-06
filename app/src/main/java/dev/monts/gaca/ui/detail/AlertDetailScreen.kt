@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.Severity
+import dev.monts.gaca.ui.common.ArtifactChip
 import dev.monts.gaca.ui.common.ConversationBubble
 import dev.monts.gaca.ui.inbox.severityColors
 import dev.monts.gaca.ui.theme.BorderColor
@@ -174,6 +175,9 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         if (!alert.body.isNullOrBlank()) {
             Text(alert.body, style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
         }
+
+        // An HTML page (artifact) the crew member made for this alert, e.g. a comparison or a checklist.
+        alert.artifactId?.let { ArtifactChip(it, "Open page") }
 
         // Pages that go with this alert — the calendar week, the source email. Shown right under
         // the body since opening one is usually the first thing to do.

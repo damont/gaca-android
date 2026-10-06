@@ -4,6 +4,7 @@ import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -99,6 +100,24 @@ interface GacaApi {
     /** Raw image bytes as the body (the API takes JPEG/PNG/WebP/GIF up to 2 MB). */
     @POST("sessions/{id}/attachments")
     suspend fun uploadAttachment(@Path("id") id: String, @Body body: RequestBody): AttachmentDto
+
+    @GET("artifacts")
+    suspend fun listArtifacts(
+        @Query("include_archived") includeArchived: Boolean = false,
+        @Query("limit") limit: Int = 200,
+    ): ArtifactListDto
+
+    @GET("artifacts/{id}")
+    suspend fun getArtifact(@Path("id") id: String): ArtifactDto
+
+    @PATCH("artifacts/{id}")
+    suspend fun patchArtifact(@Path("id") id: String, @Body body: ArtifactPatchRequest): ArtifactDto
+
+    @DELETE("artifacts/{id}")
+    suspend fun deleteArtifact(@Path("id") id: String)
+
+    @POST("artifacts/{id}/opened")
+    suspend fun markArtifactOpened(@Path("id") id: String)
 
     @POST("push/register")
     suspend fun registerPushToken(@Body body: PushTokenRegisterRequest)

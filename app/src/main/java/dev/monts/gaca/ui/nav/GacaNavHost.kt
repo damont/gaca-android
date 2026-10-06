@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,6 +17,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,7 +40,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.monts.gaca.di.AppContainer
 import dev.monts.gaca.ui.auth.LoginScreen
+import dev.monts.gaca.ui.artifact.ArtifactViewModel
+import dev.monts.gaca.ui.artifact.ArtifactViewScreen
+import dev.monts.gaca.ui.artifact.ArtifactsScreen
+import dev.monts.gaca.ui.artifact.ArtifactsViewModel
 import dev.monts.gaca.ui.auth.LoginViewModel
+import dev.monts.gaca.ui.common.ArtifactLinkEnv
+import dev.monts.gaca.ui.common.LocalArtifactLinks
 import dev.monts.gaca.ui.chat.ChatListScreen
 import dev.monts.gaca.ui.chat.ChatListViewModel
 import dev.monts.gaca.ui.chatthread.ChatThreadScreen
@@ -68,6 +76,8 @@ private const val ROUTE_DAILY = "daily"
 private const val ROUTE_INBOX = "inbox"
 private const val ROUTE_CHAT_LIST = "chat"
 private const val ROUTE_SKILLS = "skills"
+private const val ROUTE_ARTIFACTS = "artifacts"
+private const val ROUTE_ARTIFACT = "artifact/{artifactId}"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_CREW_DETAIL = "crew/{name}"
 private const val ROUTE_DETAIL = "detail/{alertId}"
@@ -82,6 +92,7 @@ private val bottomNavTabs = listOf(
     BottomNavTab(ROUTE_DAILY, "Today", Icons.Filled.WbSunny),
     BottomNavTab(ROUTE_INBOX, "Inbox", Icons.Filled.Inbox),
     BottomNavTab(ROUTE_CHAT_LIST, "Chat", Icons.AutoMirrored.Filled.Chat),
+    BottomNavTab(ROUTE_ARTIFACTS, "Artifacts", Icons.Filled.Dashboard),
     BottomNavTab(ROUTE_SKILLS, "Skills", Icons.Filled.AutoAwesome),
 )
 
@@ -92,6 +103,8 @@ fun GacaNavHost(
     onPendingAlertConsumed: () -> Unit = {},
     pendingSessionId: String? = null,
     onPendingSessionConsumed: () -> Unit = {},
+    pendingArtifactId: String? = null,
+    onPendingArtifactConsumed: () -> Unit = {},
 ) {
     val authState by container.authRepository.state.collectAsState()
 
@@ -150,8 +163,25 @@ fun GacaNavHost(
         }
     }
 
+    // A gaca://artifact/<id> link from outside the app (a notification, another app).
+    LaunchedEffect(pendingArtifactId, authState.user) {
+        if (pendingArtifactId != null && authState.user != null) {
+            navController.navigate("artifact/$pendingArtifactId")
+            onPendingArtifactConsumed()
+        }
+    }
+
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
+    // Lets any screen show a tappable "open this page" chip without being wired to navigation.
+    val artifactLinks = remember(navController, container) {
+        ArtifactLinkEnv(
+            open = { id -> navController.navigate("artifact/$id") },
+            titleOf = { id -> container.artifactRepository.title(id) },
+        )
+    }
+
+    CompositionLocalProvider(LocalArtifactLinks provides artifactLinks) {
     NavHost(
         navController = navController,
         startDestination = if (authState.user != null) ROUTE_INBOX else ROUTE_LOGIN,
@@ -198,6 +228,42 @@ fun GacaNavHost(
                     onOpenThread = { sessionId -> navController.navigate("chat-thread/$sessionId") },
                 )
             }
+        }
+        composable(ROUTE_ARTIFACTS) {
+            val vm = viewModel<ArtifactsViewModel>(
+                factory = viewModelFactory { initializer { ArtifactsViewModel(container.artifactRepository) } },
+            )
+            LaunchedEffect(Unit) { vm.refresh() } // pages may have been made or changed since last visit
+            TabbedScreen(navController, currentRoute) {
+                ArtifactsScreen(
+                    viewModel = vm,
+                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                    onOpenArtifact = { id -> navController.navigate("artifact/$id") },
+                )
+            }
+        }
+        composable(
+            ROUTE_ARTIFACT,
+            arguments = listOf(navArgument("artifactId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val artifactId = backStackEntry.arguments?.getString("artifactId").orEmpty()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val vm = viewModel<ArtifactViewModel>(
+                factory = viewModelFactory {
+                    initializer {
+                        val sdk = context.assets.open("artifact-sdk.js").bufferedReader().use { it.readText() }
+                        ArtifactViewModel(artifactId, container.artifactRepository, container.sessionsRepository, sdk)
+                    }
+                },
+            )
+            ArtifactViewScreen(
+                viewModel = vm,
+                repo = container.artifactRepository,
+                onBack = { navController.popBackStack() },
+                onOpenChat = { sessionId, prefill ->
+                    navController.navigate("chat-thread/$sessionId?prefill=${android.net.Uri.encode(prefill)}")
+                },
+            )
         }
         composable(ROUTE_SKILLS) {
             val vm = viewModel<SkillsViewModel>(
@@ -311,6 +377,7 @@ fun GacaNavHost(
                 onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
             )
         }
+    }
     }
 }
 
