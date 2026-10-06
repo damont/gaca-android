@@ -386,6 +386,9 @@ data class ArtifactDto(
 )
 
 @Serializable
+data class ArtifactOrderRequest(val ids: List<String>)
+
+@Serializable
 data class ArtifactListDto(
     val artifacts: List<ArtifactDto> = emptyList(),
 )

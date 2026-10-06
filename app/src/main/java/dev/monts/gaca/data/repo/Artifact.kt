@@ -1,6 +1,7 @@
 package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.remote.ArtifactDto
+import dev.monts.gaca.data.remote.ArtifactOrderRequest
 import dev.monts.gaca.data.remote.ArtifactPatchRequest
 import dev.monts.gaca.data.remote.GacaApi
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +80,11 @@ class ArtifactRepository(
     }
 
     suspend fun delete(id: String) = api.deleteArtifact(id)
+
+    /** Saves the order the owner dragged the list into (the API keeps it per account). */
+    suspend fun reorder(ids: List<String>) {
+        api.reorderArtifacts(ArtifactOrderRequest(ids))
+    }
 
     suspend fun markOpened(id: String) {
         runCatching { api.markArtifactOpened(id) }
