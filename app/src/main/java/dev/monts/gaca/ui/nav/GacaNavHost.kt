@@ -3,7 +3,10 @@ package dev.monts.gaca.ui.nav
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -411,11 +414,15 @@ fun GacaNavHost(
 /** Wraps one of the three daily destinations with the shared bottom nav bar —
  * Settings, the alert detail drill-down, new-delegation, and the chat thread
  * all render full-screen instead, same as the design canvas shows them. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TabbedScreen(navController: NavHostController, currentRoute: String?, content: @Composable () -> Unit) {
+    // The keyboard covers the bar anyway; keeping it in the layout would make a screen's own
+    // keyboard padding double-count the bar's height and squeeze the content.
+    val imeVisible = WindowInsets.isImeVisible
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) { content() }
-        GacaBottomNavBar(navController, currentRoute)
+        if (!imeVisible) GacaBottomNavBar(navController, currentRoute)
     }
 }
 

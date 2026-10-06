@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -130,7 +131,9 @@ fun ChatThreadScreen(
         Modifier
             .fillMaxSize()
             .background(PageBackground)
-            .windowInsetsPadding(WindowInsets.systemBars)
+            // As a tab, the bottom nav bar already accounts for the system bottom inset (and is
+            // hidden while the keyboard is up), so only the top inset is ours to pad.
+            .windowInsetsPadding(if (showBack) WindowInsets.systemBars else WindowInsets.statusBars)
             // Edge-to-edge (MainActivity's enableEdgeToEdge()) means the keyboard's own
             // inset isn't reserved automatically — without this, the keyboard just
             // overlaps the input row instead of the layout making room above it.
