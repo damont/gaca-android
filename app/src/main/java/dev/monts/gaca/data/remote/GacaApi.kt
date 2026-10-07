@@ -107,6 +107,10 @@ interface GacaApi {
         @Query("limit") limit: Int = 200,
     ): ArtifactListDto
 
+    /** Saves the owner's drag-and-drop order: these ids first, in this order. */
+    @PUT("artifacts/order")
+    suspend fun reorderArtifacts(@Body body: ArtifactOrderRequest): ArtifactListDto
+
     @GET("artifacts/{id}")
     suspend fun getArtifact(@Path("id") id: String): ArtifactDto
 
