@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
@@ -39,6 +41,17 @@ import androidx.compose.foundation.rememberScrollState
 import dev.monts.gaca.ui.chat.ChatSessionRow
 import dev.monts.gaca.ui.theme.TextSecondary
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -93,6 +106,105 @@ fun ChatThreadScreen(
     onOpenSettings: (() -> Unit)? = null,
     onOpenSession: (String) -> Unit = {},
 ) {
+    if (showBack) {
+        ChatThreadContent(viewModel, onBack, onOpenAlert, onOpenCrew, true, onOpenHistory, onOpenSettings, onOpenSession, onOpenDrawer = null)
+        return
+    }
+    // The Chat tab: past chats live in a drawer that slides in from the left. Tap the crew
+    // pill, swipe from the edge, or tap the dimmed chat / press Back to close it.
+    val state by viewModel.uiState.collectAsState()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val crewByName = state.crew.associateBy { it.name }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(drawerContainerColor = PageBackground) {
+                LaunchedEffect(drawerState.currentValue) {
+                    if (drawerState.currentValue == DrawerValue.Open) viewModel.refreshRecents()
+                }
+                Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 12.dp, vertical = 12.dp)) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(HeaderAccent)
+                            .clickable { scope.launch { drawerState.close() }; viewModel.newChat() }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, tint = OnAccent)
+                        Text("New chat", style = MaterialTheme.typography.titleSmall, color = OnAccent)
+                    }
+                    if (onOpenHistory != null) {
+                        Row(
+                            Modifier
+                                .padding(top = 10.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(ChipBackground)
+                                .clickable { scope.launch { drawerState.close() }; onOpenHistory() }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(Icons.Filled.Search, contentDescription = null, tint = TextSecondary)
+                            Text("Search all chats", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        }
+                    }
+                    Text(
+                        "Recent",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextMeta,
+                        modifier = Modifier.padding(start = 6.dp, top = 16.dp, bottom = 6.dp),
+                    )
+                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.recents, key = { it.id }) { session ->
+                            ChatSessionRow(session, crewByName[session.crew], onTap = {
+                                scope.launch { drawerState.close() }
+                                onOpenSession(session.id)
+                            })
+                        }
+                    }
+                    if (onOpenSettings != null) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable { scope.launch { drawerState.close() }; onOpenSettings() }
+                                .padding(horizontal = 8.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Filled.Settings, contentDescription = null, tint = TextSecondary)
+                            Text("Settings", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                        }
+                    }
+                }
+            }
+        },
+    ) {
+        ChatThreadContent(
+            viewModel, onBack, onOpenAlert, onOpenCrew, false, onOpenHistory, onOpenSettings, onOpenSession,
+            onOpenDrawer = { scope.launch { drawerState.open() } },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun ChatThreadContent(
+    viewModel: ChatThreadViewModel,
+    onBack: () -> Unit,
+    onOpenAlert: (String) -> Unit,
+    onOpenCrew: (String) -> Unit,
+    showBack: Boolean,
+    onOpenHistory: (() -> Unit)?,
+    onOpenSettings: (() -> Unit)?,
+    onOpenSession: (String) -> Unit,
+    onOpenDrawer: (() -> Unit)?,
+) {
     val state by viewModel.uiState.collectAsState()
     LifecycleResumeEffect(state.isDraft) {
         if (state.isDraft) viewModel.refreshRecents()
@@ -139,59 +251,88 @@ fun ChatThreadScreen(
             // overlaps the input row instead of the layout making room above it.
             .imePadding(),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 14.dp, top = 20.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (showBack) {
+        if (showBack) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 14.dp, top = 20.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(
                     Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
                 }
-            } else {
-                Spacer(Modifier.width(8.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            // Tapping the avatar or name opens that crew member's setup.
-            val openCrew = member?.let { m -> Modifier.clickable { onOpenCrew(m.name) } } ?: Modifier
-            if (member != null) {
-                Box(Modifier.size(30.dp).clip(CircleShape).background(accent).then(openCrew), contentAlignment = Alignment.Center) {
-                    Text(member.name.take(2).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = OnAccent)
-                }
                 Spacer(Modifier.width(10.dp))
-            }
-            Column(Modifier.weight(1f).then(openCrew)) {
-                Text(
-                    if (state.isDraft) "New chat" else state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                )
-                val status = state.runStatus
-                if (status != null) {
-                    Text(status, style = MaterialTheme.typography.labelSmall, color = accent)
+                // Tapping the avatar or name opens that crew member's setup.
+                val openCrew = member?.let { m -> Modifier.clickable { onOpenCrew(m.name) } } ?: Modifier
+                if (member != null) {
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(accent).then(openCrew), contentAlignment = Alignment.Center) {
+                        Text(member.name.take(2).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = OnAccent)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(Modifier.weight(1f).then(openCrew)) {
+                    Text(
+                        state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
+                    val status = state.runStatus
+                    if (status != null) {
+                        Text(status, style = MaterialTheme.typography.labelSmall, color = accent)
+                    }
                 }
             }
-            if (!showBack) {
+            Box(Modifier.fillMaxWidth().height(3.dp).background(accent))
+        } else {
+            // Quiet tab header: one crew pill (opens the chat drawer) and a new-chat button.
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White)
+                        .clickable(enabled = onOpenDrawer != null) { onOpenDrawer?.invoke() }
+                        .padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                        Text(
+                            (member?.name ?: "?").take(2).replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OnAccent,
+                        )
+                    }
+                    Column(Modifier.widthIn(max = 200.dp)) {
+                        Text(
+                            member?.name ?: "Chat",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val status = state.runStatus
+                        if (status != null) {
+                            Text(status, style = MaterialTheme.typography.labelSmall, color = accent, maxLines = 1)
+                        }
+                    }
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Chats and settings", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
                 if (!state.isDraft) {
-                    IconButton(onClick = viewModel::newChat) {
-                        Icon(Icons.Filled.Add, contentDescription = "New chat", tint = TextSecondary)
-                    }
-                }
-                if (onOpenHistory != null) {
-                    IconButton(onClick = onOpenHistory) {
-                        Icon(Icons.Filled.History, contentDescription = "Chat history", tint = TextSecondary)
-                    }
-                }
-                if (onOpenSettings != null) {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary)
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape).background(Color.White).clickable(onClick = viewModel::newChat),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = "New chat", tint = TextPrimary)
                     }
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().height(3.dp).background(accent))
 
         val alertId = state.sessionDetail?.session?.alertId
         if (alertId != null) {
@@ -224,8 +365,6 @@ fun ChatThreadScreen(
             state.isDraft -> DraftBody(
                 state = state,
                 onSelectCrew = viewModel::selectCrew,
-                onOpenSession = onOpenSession,
-                onOpenHistory = onOpenHistory,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
             state.isLoading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -332,21 +471,31 @@ fun ChatThreadScreen(
         }
 
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 14.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White)
+                .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             IconButton(
                 onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 enabled = state.pendingPhotos.size < PhotoPrep.MAX_PHOTOS && !state.sending,
             ) {
-                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach photo", tint = accent)
+                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach photo", tint = TextSecondary)
             }
             OutlinedTextField(
                 value = state.messageText,
                 onValueChange = viewModel::setMessageText,
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Message${member?.let { " " + it.name } ?: ""}…") },
+                maxLines = 5,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                ),
             )
             val canSend = (state.messageText.isNotBlank() || state.pendingPhotos.isNotEmpty()) && !state.sending && !state.preparingPhotos
             Box(
@@ -372,11 +521,8 @@ fun ChatThreadScreen(
 private fun DraftBody(
     state: ChatThreadUiState,
     onSelectCrew: (String) -> Unit,
-    onOpenSession: (String) -> Unit,
-    onOpenHistory: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val crewByName = state.crew.associateBy { it.name }
     LazyColumn(
         modifier,
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp),
@@ -409,39 +555,11 @@ private fun DraftBody(
         }
         item {
             Text(
-                "Type below to start — nothing is saved until you send.",
-                style = MaterialTheme.typography.bodySmall,
+                "Say something to start a new chat.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = TextMeta,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
-        }
-        if (state.recents.isNotEmpty()) {
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Recent chats", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-                    if (onOpenHistory != null) {
-                        Text(
-                            "Search all",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = HeaderAccent,
-                            modifier = Modifier.clickable(onClick = onOpenHistory).padding(vertical = 4.dp),
-                        )
-                    }
-                }
-            }
-            items(state.recents, key = { it.id }) { session ->
-                ChatSessionRow(session, crewByName[session.crew], onTap = { onOpenSession(session.id) })
-            }
-            if (onOpenHistory != null) {
-                item {
-                    Text(
-                        "See all chats",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = HeaderAccent,
-                        modifier = Modifier.clickable(onClick = onOpenHistory).padding(vertical = 8.dp),
-                    )
-                }
-            }
         }
     }
 }
