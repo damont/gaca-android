@@ -24,25 +24,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.extractArtifactRefs
 import androidx.compose.runtime.remember
 import dev.monts.gaca.ui.theme.ChipBackground
-import dev.monts.gaca.ui.theme.SuggestBackground
-import dev.monts.gaca.ui.theme.TextMeta
+import dev.monts.gaca.ui.theme.HeaderAccent
+import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.TextPrimary
-import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 
 /**
  * One turn of a conversation with a crew member — shared by [dev.monts.gaca.ui.detail.AlertDetailScreen]'s
  * "CONVERSATION" section and [dev.monts.gaca.ui.chatthread.ChatThreadScreen]'s full thread, so the two
- * never drift apart in behavior. The crew member's own replies sit right-aligned and tinted in
- * their own color (`crewColorHex`, when known); everything else (the user's own messages, tool
- * activity) sits left-aligned in the neutral chip color. Falls back to the old fixed
- * [SuggestBackground] when no color is available, e.g. a session whose crew member no longer
- * resolves.
+ * never drift apart in behavior. The crew member's replies sit left-aligned in a solid bubble of
+ * their own color (`crewColorHex`, when known; [HeaderAccent] otherwise, e.g. a session whose crew
+ * member no longer resolves); the user's own messages sit right-aligned in the neutral chip color.
  */
 @Composable
 fun ConversationBubble(
@@ -52,26 +50,21 @@ fun ConversationBubble(
     imageLoader: (suspend (String) -> Bitmap?)? = null,
 ) {
     val fromCrew = message.role == "assistant"
-    val bubbleColor = if (fromCrew) {
-        crewColorHex?.let { crewChipTint(it) } ?: SuggestBackground
+    val bubbleColor = if (fromCrew) crewColorHex?.let { crewColor(it) } ?: HeaderAccent else ChipBackground
+    val textColor = if (fromCrew) {
+        if (bubbleColor.luminance() > 0.5f) TextPrimary else OnAccent
     } else {
-        ChipBackground
+        TextPrimary
     }
-    val labelColor = if (fromCrew && crewColorHex != null) crewColor(crewColorHex) else TextMeta
 
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (fromCrew) Arrangement.End else Arrangement.Start) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (fromCrew) Arrangement.Start else Arrangement.End) {
         Column(
             Modifier
                 .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .background(bubbleColor)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(
-                message.role.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelSmall,
-                color = labelColor,
-            )
             message.localPreviews.forEach { PhotoThumb(it) }
             if (imageLoader != null && message.localPreviews.isEmpty()) {
                 message.attachments.forEach { attachment ->
@@ -85,7 +78,7 @@ fun ConversationBubble(
             if (text.isNotBlank()) {
                 // Long-press to select and copy, e.g. to paste a reply somewhere else.
                 SelectionContainer {
-                    Text(text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = textColor)
                 }
             }
             // Pages the crew member made show as tappable chips instead of a raw gaca:// address.
