@@ -251,88 +251,7 @@ private fun ChatThreadContent(
             // overlaps the input row instead of the layout making room above it.
             .imePadding(),
     ) {
-        if (showBack) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 14.dp, top = 20.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                // Tapping the avatar or name opens that crew member's setup.
-                val openCrew = member?.let { m -> Modifier.clickable { onOpenCrew(m.name) } } ?: Modifier
-                if (member != null) {
-                    Box(Modifier.size(30.dp).clip(CircleShape).background(accent).then(openCrew), contentAlignment = Alignment.Center) {
-                        Text(member.name.take(2).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = OnAccent)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                }
-                Column(Modifier.weight(1f).then(openCrew)) {
-                    Text(
-                        state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                    val status = state.runStatus
-                    if (status != null) {
-                        Text(status, style = MaterialTheme.typography.labelSmall, color = accent)
-                    }
-                }
-            }
-            Box(Modifier.fillMaxWidth().height(3.dp).background(accent))
-        } else {
-            // Quiet tab header: one crew pill (opens the chat drawer) and a new-chat button.
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    Modifier
-                        .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White)
-                        .clickable(enabled = onOpenDrawer != null) { onOpenDrawer?.invoke() }
-                        .padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Box(Modifier.size(32.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
-                        Text(
-                            (member?.name ?: "?").take(2).replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = OnAccent,
-                        )
-                    }
-                    Column(Modifier.widthIn(max = 200.dp)) {
-                        Text(
-                            member?.name ?: "Chat",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        val status = state.runStatus
-                        if (status != null) {
-                            Text(status, style = MaterialTheme.typography.labelSmall, color = accent, maxLines = 1)
-                        }
-                    }
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Chats and settings", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                }
-                if (!state.isDraft) {
-                    Box(
-                        Modifier.size(48.dp).clip(CircleShape).background(Color.White).clickable(onClick = viewModel::newChat),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "New chat", tint = TextPrimary)
-                    }
-                }
-            }
-        }
+        ChatHeader(state, accent, showBack, onBack, onOpenCrew, onOpenDrawer, viewModel::newChat)
 
         val alertId = state.sessionDetail?.session?.alertId
         if (alertId != null) {
@@ -437,83 +356,206 @@ private fun ChatThreadContent(
             )
         }
 
-        if (state.pendingPhotos.isNotEmpty() || state.preparingPhotos) {
+        PendingPhotosRow(state, accent, viewModel::removePhoto)
+
+        Composer(
+            state = state,
+            accent = accent,
+            onPickPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onTextChange = viewModel::setMessageText,
+            onSend = viewModel::send,
+        )
+    }
+}
+
+
+@Composable
+private fun ChatHeader(
+    state: ChatThreadUiState,
+    accent: Color,
+    showBack: Boolean,
+    onBack: () -> Unit,
+    onOpenCrew: (String) -> Unit,
+    onOpenDrawer: (() -> Unit)?,
+    onNewChat: () -> Unit,
+) {
+    val member = state.crewMember
+    Column {
+        if (showBack) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().padding(start = 14.dp, top = 20.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                state.pendingPhotos.forEach { photo ->
-                    Box(Modifier.size(64.dp)) {
-                        Image(
-                            bitmap = photo.thumbnail.asImageBitmap(),
-                            contentDescription = "Attached photo",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)),
-                        )
-                        Box(
-                            Modifier
-                                .align(Alignment.TopEnd)
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(HeaderAccent)
-                                .clickable { viewModel.removePhoto(photo.id) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = OnAccent, modifier = Modifier.size(12.dp))
-                        }
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).background(ChipBackground).clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary, modifier = Modifier.size(16.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                // Tapping the avatar or name opens that crew member's setup.
+                val openCrew = member?.let { m -> Modifier.clickable { onOpenCrew(m.name) } } ?: Modifier
+                if (member != null) {
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(accent).then(openCrew), contentAlignment = Alignment.Center) {
+                        Text(member.name.take(2).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelSmall, color = OnAccent)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(Modifier.weight(1f).then(openCrew)) {
+                    Text(
+                        state.sessionDetail?.session?.title ?: member?.name ?: state.sessionDetail?.session?.crew ?: "Chat",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
+                    val status = state.runStatus
+                    if (status != null) {
+                        Text(status, style = MaterialTheme.typography.labelSmall, color = accent)
                     }
                 }
-                if (state.preparingPhotos) {
-                    CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+            Box(Modifier.fillMaxWidth().height(3.dp).background(accent))
+        } else {
+            // Quiet tab header: one crew pill (opens the chat drawer) and a new-chat button.
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White)
+                        .clickable(enabled = onOpenDrawer != null) { onOpenDrawer?.invoke() }
+                        .padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                        Text(
+                            (member?.name ?: "?").take(2).replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OnAccent,
+                        )
+                    }
+                    Column(Modifier.widthIn(max = 200.dp)) {
+                        Text(
+                            member?.name ?: "Chat",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val status = state.runStatus
+                        if (status != null) {
+                            Text(status, style = MaterialTheme.typography.labelSmall, color = accent, maxLines = 1)
+                        }
+                    }
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Chats and settings", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
+                if (!state.isDraft) {
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape).background(Color.White).clickable(onClick = onNewChat),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = "New chat", tint = TextPrimary)
+                    }
                 }
             }
         }
 
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color.White)
-                .padding(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(
-                onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                enabled = state.pendingPhotos.size < PhotoPrep.MAX_PHOTOS && !state.sending,
-            ) {
-                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach photo", tint = TextSecondary)
-            }
-            OutlinedTextField(
-                value = state.messageText,
-                onValueChange = viewModel::setMessageText,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Message${member?.let { " " + it.name } ?: ""}…") },
-                maxLines = 5,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    disabledBorderColor = Color.Transparent,
-                ),
-            )
-            val canSend = (state.messageText.isNotBlank() || state.pendingPhotos.isNotEmpty()) && !state.sending && !state.preparingPhotos
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(if (canSend) accent else BorderColor)
-                    .clickable(enabled = canSend, onClick = viewModel::send),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (state.sending) {
-                    CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = OnAccent, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun PendingPhotosRow(state: ChatThreadUiState, accent: Color, onRemove: (String) -> Unit) {
+if (state.pendingPhotos.isNotEmpty() || state.preparingPhotos) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        state.pendingPhotos.forEach { photo ->
+            Box(Modifier.size(64.dp)) {
+                Image(
+                    bitmap = photo.thumbnail.asImageBitmap(),
+                    contentDescription = "Attached photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize().clip(RoundedCornerShape(8.dp)),
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(HeaderAccent)
+                        .clickable { onRemove(photo.id) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = OnAccent, modifier = Modifier.size(12.dp))
                 }
             }
         }
+        if (state.preparingPhotos) {
+            CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        }
     }
+}
+
+}
+
+@Composable
+private fun Composer(
+    state: ChatThreadUiState,
+    accent: Color,
+    onPickPhoto: () -> Unit,
+    onTextChange: (String) -> Unit,
+    onSend: () -> Unit,
+) {
+    val member = state.crewMember
+Row(
+    Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 12.dp, vertical = 10.dp)
+        .clip(RoundedCornerShape(28.dp))
+        .background(Color.White)
+        .padding(4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    IconButton(
+        onClick = { onPickPhoto() },
+        enabled = state.pendingPhotos.size < PhotoPrep.MAX_PHOTOS && !state.sending,
+    ) {
+        Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach photo", tint = TextSecondary)
+    }
+    OutlinedTextField(
+        value = state.messageText,
+        onValueChange = onTextChange,
+        modifier = Modifier.weight(1f),
+        placeholder = { Text("Message${member?.let { " " + it.name } ?: ""}…") },
+        maxLines = 5,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color.Transparent,
+            unfocusedBorderColor = Color.Transparent,
+            disabledBorderColor = Color.Transparent,
+        ),
+    )
+    val canSend = (state.messageText.isNotBlank() || state.pendingPhotos.isNotEmpty()) && !state.sending && !state.preparingPhotos
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(if (canSend) accent else BorderColor)
+            .clickable(enabled = canSend, onClick = onSend),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (state.sending) {
+            CircularProgressIndicator(color = OnAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+        } else {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = OnAccent, modifier = Modifier.size(18.dp))
+        }
+    }
+}
 }
 
 /** What a not-yet-saved chat shows: who it will go to, and the latest chats to jump back into. */
