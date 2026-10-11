@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.Alert
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Severity
+import dev.monts.gaca.R
+import dev.monts.gaca.ui.common.BrandMark
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
@@ -100,7 +102,7 @@ fun InboxScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Column {
-                Text("Gaca", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
+                Text("Alerts", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
                 val subtitle = if (state.activeTab != InboxTab.NEW) "" else {
                     val newCount = state.alerts.size
                     if (newCount == 0) "You're all caught up"
@@ -410,12 +412,7 @@ private fun EmptyRewardState() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            Modifier.size(56.dp).clip(CircleShape).background(ChipBackground),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = HeaderAccent, modifier = Modifier.size(26.dp))
-        }
+        BrandMark(R.drawable.ic_gaca_wings_down, "Gaca with wings down, resting", 176.dp)
         Spacer(Modifier.height(14.dp))
         Text(
             "Nothing needs you right now",
@@ -435,7 +432,13 @@ private fun EmptyRewardState() {
 
 @Composable
 private fun QuietEmptyState(tabLabel: String) {
-    Box(Modifier.fillMaxSize().padding(40.dp), contentAlignment = Alignment.Center) {
+    Column(
+        Modifier.fillMaxSize().padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        BrandMark(R.drawable.ic_gaca_wings_down, null, 120.dp)
+        Spacer(Modifier.height(12.dp))
         Text(
             "Nothing ${tabLabel.lowercase()} right now.",
             style = MaterialTheme.typography.bodyMedium,
