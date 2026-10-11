@@ -221,7 +221,7 @@ private fun MessageList(state: ChatThreadUiState, messages: List<ConversationMes
             state = listState,
             reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.Bottom),
         ) {
             if (state.running) {
                 item(key = "live-turn") { LiveTurn(member, crewName, state.currentTool, state.runStartedAtMillis, state.liveText) }
