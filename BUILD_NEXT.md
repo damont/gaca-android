@@ -7,7 +7,7 @@ of that conversation's context, so this is everything you need.
 > **Update, 2026-09-20, later the same day: the backend is done, merged, and
 > deployed for real.** Everything below is now the settled, live shape — not
 > a plan. `main` in `gaca` has it (PR #11), and it's running in production
-> on the `gaca-api` box (`https://goodandcheapagent.com/api`), verified
+> on the `gaca-api` box, verified
 > healthy. If you started Slice 1 before this update using the earlier
 > `/crew/host` shape, re-read §2 below — that endpoint is gone, replaced by
 > `/agent` as its own resource. `gaca/frontend/src/components/profile/CrewSection.tsx`
