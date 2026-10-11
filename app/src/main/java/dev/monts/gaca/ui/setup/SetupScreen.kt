@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.ui.theme.HeaderAccent
@@ -37,11 +36,25 @@ import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SeverityUrgentDot
 import dev.monts.gaca.ui.theme.TextMeta
+import dev.monts.gaca.ui.theme.TextPrimary
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 
-/** First run, or after "Use a different server": point the app at a server and get in. */
+/** First run, or after "Disconnect from this server": pair this phone with a server. */
 @Composable
 fun SetupScreen(viewModel: SetupViewModel) {
     val s by viewModel.state.collectAsState()
+    val context = LocalContext.current
+
+    fun scan() {
+        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+        GmsBarcodeScanning.getClient(context, options).startScan()
+            .addOnSuccessListener { viewModel.onScanned(it.rawValue) }
+            .addOnFailureListener { viewModel.scanFailed() }
+    }
 
     Column(
         Modifier
@@ -53,56 +66,38 @@ fun SetupScreen(viewModel: SetupViewModel) {
         verticalArrangement = Arrangement.Center,
     ) {
         Text("Gaca", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
-        Text(
-            when (s.step) {
-                SetupStep.ADDRESS -> "Where is your server?"
-                SetupStep.CLAIM -> "Set up this server"
-                SetupStep.SIGN_IN -> "Sign in"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextMeta,
-        )
+        Text("Connect to your server", style = MaterialTheme.typography.bodyMedium, color = TextMeta)
         Spacer(Modifier.height(28.dp))
 
-        when (s.step) {
-            SetupStep.ADDRESS -> {
-                OutlinedTextField(
-                    value = s.address,
-                    onValueChange = viewModel::setAddress,
-                    label = { Text("Server address") },
-                    placeholder = { Text("gaca.example.com") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "The address your server printed when it was installed, or scan its QR code.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMeta,
-                )
-            }
-            SetupStep.CLAIM, SetupStep.SIGN_IN -> {
-                Text(s.server.orEmpty().removeSuffix("/api/"), style = MaterialTheme.typography.bodySmall, color = TextMeta)
-                Spacer(Modifier.height(12.dp))
-                if (s.step == SetupStep.CLAIM) {
-                    Field(s.code, viewModel::setCode, "Setup code", ImeAction.Next)
-                    Spacer(Modifier.height(12.dp))
-                    Field(s.name, viewModel::setName, "Your name", ImeAction.Next)
-                    Spacer(Modifier.height(12.dp))
-                }
-                Field(s.email, viewModel::setEmail, "Email", ImeAction.Next, KeyboardType.Email)
-                Spacer(Modifier.height(12.dp))
-                Field(s.password, viewModel::setPassword, "Password", ImeAction.Done, KeyboardType.Password, secret = true)
-                if (s.step == SetupStep.CLAIM) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "This makes you the only person who can use this server. At least 8 characters.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMeta,
-                    )
-                }
-            }
+        if (s.mode == PairMode.SCAN) {
+            Text(
+                "On the computer that runs your GACA server, run",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("gaca-api pair", style = MaterialTheme.typography.titleMedium, color = HeaderAccent, fontFamily = FontFamily.Monospace)
+            Spacer(Modifier.height(8.dp))
+            Text("then scan the QR code it shows.", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+        } else {
+            OutlinedTextField(
+                value = s.address,
+                onValueChange = viewModel::setAddress,
+                label = { Text("Server address") },
+                placeholder = { Text("gaca.example.com") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = s.code,
+                onValueChange = viewModel::setCode,
+                label = { Text("Pairing code") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+            )
         }
 
         s.error?.let {
@@ -110,19 +105,15 @@ fun SetupScreen(viewModel: SetupViewModel) {
             Text(it, style = MaterialTheme.typography.bodySmall, color = SeverityUrgentDot)
         }
 
-        val ready = when (s.step) {
-            SetupStep.ADDRESS -> s.address.isNotBlank()
-            SetupStep.CLAIM -> s.code.isNotBlank() && s.name.isNotBlank() && s.email.isNotBlank() && s.password.length >= 8
-            SetupStep.SIGN_IN -> s.email.isNotBlank() && s.password.isNotBlank()
-        }
         Spacer(Modifier.height(20.dp))
+        val ready = s.mode == PairMode.SCAN || (s.address.isNotBlank() && s.code.isNotBlank())
         Box(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
                 .background(if (ready) HeaderAccent else HeaderAccent.copy(alpha = 0.4f))
                 .clickable(enabled = ready && !s.busy) {
-                    if (s.step == SetupStep.ADDRESS) viewModel.connect() else viewModel.submit()
+                    if (s.mode == PairMode.SCAN) scan() else viewModel.pair()
                 }
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
@@ -131,46 +122,22 @@ fun SetupScreen(viewModel: SetupViewModel) {
                 CircularProgressIndicator(color = OnAccent, modifier = Modifier.height(18.dp))
             } else {
                 Text(
-                    when (s.step) {
-                        SetupStep.ADDRESS -> "Continue"
-                        SetupStep.CLAIM -> "Set up server"
-                        SetupStep.SIGN_IN -> "Sign in"
-                    },
+                    if (s.mode == PairMode.SCAN) "Scan QR code" else "Pair",
                     style = MaterialTheme.typography.labelLarge,
                     color = OnAccent,
                 )
             }
         }
 
-        if (s.step != SetupStep.ADDRESS) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Use a different server",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMeta,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = viewModel::back),
-            )
-        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (s.mode == PairMode.SCAN) "Enter a code instead" else "Scan a QR code instead",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMeta,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clickable {
+                if (s.mode == PairMode.SCAN) viewModel.showTyping() else viewModel.showScanning()
+            },
+        )
     }
-}
-
-@Composable
-private fun Field(
-    value: String,
-    onChange: (String) -> Unit,
-    label: String,
-    ime: ImeAction,
-    type: KeyboardType = KeyboardType.Text,
-    secret: Boolean = false,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = type, imeAction = ime),
-    )
 }

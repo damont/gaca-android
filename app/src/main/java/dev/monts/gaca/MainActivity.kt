@@ -13,12 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import dev.monts.gaca.data.repo.SetupRepository
 import dev.monts.gaca.ui.setup.SetupScreen
-import dev.monts.gaca.ui.setup.SetupViewModel
+import dev.monts.gaca.ui.setup.rememberSetupViewModel
+import dev.monts.gaca.util.parseSetupLink
 import dev.monts.gaca.util.SetupLink
 import dev.monts.gaca.push.EXTRA_ALERT_ID
 import dev.monts.gaca.push.EXTRA_SESSION_ID
@@ -49,20 +46,7 @@ class MainActivity : ComponentActivity() {
             GacaTheme {
                 val container = app.container
                 if (!container.configured) {
-                    val setupViewModel = viewModel<SetupViewModel>(
-                        key = "setup",
-                        factory = viewModelFactory {
-                            initializer {
-                                SetupViewModel(
-                                    setup = SetupRepository(),
-                                    settingsStore = container.settingsStore,
-                                    tokenStore = container.tokenStore,
-                                    allowHttp = BuildConfig.DEBUG,
-                                    onConfigured = app::reconfigure,
-                                )
-                            }
-                        },
-                    )
+                    val setupViewModel = rememberSetupViewModel(app, container)
                     val link = pendingSetupLink.value
                     LaunchedEffect(link) {
                         if (link != null) {
@@ -81,6 +65,8 @@ class MainActivity : ComponentActivity() {
                     onPendingAlertConsumed = { pendingAlertId.value = null },
                     pendingSessionId = pendingSessionId.value,
                     onPendingSessionConsumed = { pendingSessionId.value = null },
+                    pendingSetupLink = pendingSetupLink.value,
+                    onPendingSetupConsumed = { pendingSetupLink.value = null },
                     pendingArtifactId = pendingArtifactId.value,
                     onPendingArtifactConsumed = { pendingArtifactId.value = null },
                 )
@@ -99,11 +85,9 @@ class MainActivity : ComponentActivity() {
         pendingSetupLink.value = setupLinkFrom(intent)
     }
 
-    /** `gaca://setup?url=…&code=…` → what to prefill; only acted on while the app has no server yet. */
+    /** `gaca://setup?url=…&code=…` (what the QR code from `gaca-api pair` carries); acted on while this phone is not paired. */
     private fun setupLinkFrom(intent: Intent?): SetupLink? {
-        val uri = intent?.data ?: return null
-        if (uri.scheme != "gaca" || uri.host != "setup") return null
-        return SetupLink(uri.getQueryParameter("url"), uri.getQueryParameter("code"))
+        return parseSetupLink(intent?.dataString)
     }
 
     /** `gaca://artifact/<id>` → the id (ids are 32 hex characters; anything else is ignored). */

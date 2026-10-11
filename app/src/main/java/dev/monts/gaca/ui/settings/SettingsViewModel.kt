@@ -77,11 +77,11 @@ class SettingsViewModel(
         }
     }
 
-    /** Sign out and forget the server: the app goes back to asking which one to use. */
-    fun switchServer() {
+    /** Unpair this phone and forget the server: the app goes back to the pairing screen. */
+    fun disconnect() {
         viewModelScope.launch {
-            runCatching { pushRepository.unregisterCurrentToken() } // best effort; the old server may be gone
-            authRepository.logout()
+            runCatching { pushRepository.unregisterCurrentToken() } // best effort; the server may be gone
+            authRepository.disconnect()
             settingsStore.clearBaseUrl()
             onServerChanged()
         }
@@ -189,15 +189,6 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 _uiState.update { it.copy(newCrewSaving = false, crewError = e.friendlyMessage()) }
             }
-        }
-    }
-
-    fun logout() {
-        viewModelScope.launch {
-            // Before clearing the session — unregistering needs a live auth
-            // token, and the token itself, to make the call.
-            pushRepository.unregisterCurrentToken()
-            authRepository.logout()
         }
     }
 }

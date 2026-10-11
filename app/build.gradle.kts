@@ -8,16 +8,10 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-// Google Sign-In's web client id is not a secret (it's compiled into every client
-// that uses it) but it's still per-deployment config, so it comes from a local,
-// untracked file rather than being hardcoded here. Leaving it unset simply hides
-// the Google Sign-In button — email/password still works — same fallback the web
-// frontend uses for VITE_GOOGLE_CLIENT_ID.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
 // No server address ships in the app: people enter their own (or scan a setup link). A developer
 // can still pin one here, e.g. DEFAULT_BASE_URL=https://example.com/api/ in local.properties.
 val defaultBaseUrl: String = localProperties.getProperty("DEFAULT_BASE_URL", "")
@@ -34,7 +28,6 @@ android {
         versionName = "0.1.0"
 
         buildConfigField("String", "DEFAULT_BASE_URL", "\"$defaultBaseUrl\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -84,9 +77,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.security.crypto)
 
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)
+    implementation(libs.play.services.code.scanner)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization.converter)

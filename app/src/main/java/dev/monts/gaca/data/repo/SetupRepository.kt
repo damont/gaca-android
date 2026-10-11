@@ -1,9 +1,7 @@
 package dev.monts.gaca.data.repo
 
-import dev.monts.gaca.data.remote.ClaimRequestDto
+import dev.monts.gaca.data.remote.PairRequestDto
 import dev.monts.gaca.data.remote.SetupApi
-import dev.monts.gaca.data.remote.SetupStatusDto
-import dev.monts.gaca.data.remote.UserLoginRequest
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -12,7 +10,7 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 /**
- * Talks to a server the app is not configured for yet, so it has no session and no saved
+ * Talks to a server this phone is not paired with yet, so it has no credential and no saved
  * address: every call names the base URL (ending in `/api/`) it is aimed at.
  */
 class SetupRepository {
@@ -29,12 +27,12 @@ class SetupRepository {
         .build()
         .create(SetupApi::class.java)
 
-    suspend fun status(baseUrl: String): SetupStatusDto = api(baseUrl).status()
+    /** Throws if nothing that speaks GACA answers there. */
+    suspend fun check(baseUrl: String) {
+        api(baseUrl).status()
+    }
 
-    /** Returns the new session token. */
-    suspend fun claim(baseUrl: String, code: String, name: String, email: String, password: String): String =
-        api(baseUrl).claim(ClaimRequestDto(code, name, email, password)).accessToken
-
-    suspend fun signIn(baseUrl: String, email: String, password: String): String =
-        api(baseUrl).login(UserLoginRequest(email, password)).accessToken
+    /** Trades the one-time code `gaca-api pair` printed for this device's credential. */
+    suspend fun pair(baseUrl: String, code: String, deviceName: String): String =
+        api(baseUrl).pair(PairRequestDto(code, deviceName)).accessToken
 }

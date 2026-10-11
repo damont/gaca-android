@@ -29,3 +29,24 @@ class ServerAddressTest {
         assertNull(n("javascript:alert(1)"))
     }
 }
+
+class SetupLinkTest {
+    @Test fun readsTheAddressAndCodeFromAPairingLink() {
+        val link = parseSetupLink("gaca://setup?url=https%3A%2F%2Fgaca.example.com&code=ABCD2345EFGH6789")
+        assertEquals(SetupLink("https://gaca.example.com", "ABCD2345EFGH6789"), link)
+    }
+    @Test fun missingPartsComeBackNull() {
+        assertEquals(SetupLink(null, "X"), parseSetupLink("gaca://setup?code=X"))
+        assertEquals(SetupLink(null, null), parseSetupLink("gaca://setup"))
+    }
+    @Test fun anythingElseIsNotOurs() {
+        assertNull(parseSetupLink(null))
+        assertNull(parseSetupLink(""))
+        assertNull(parseSetupLink("https://gaca.example.com/?code=X"))
+        assertNull(parseSetupLink("gaca://artifact/0123456789abcdef0123456789abcdef"))
+        assertNull(parseSetupLink("not a link at all"))
+    }
+    @Test fun surroundingWhitespaceIsTolerated() {
+        assertEquals("X", parseSetupLink("  gaca://setup?code=X\n")?.code)
+    }
+}

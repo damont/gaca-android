@@ -44,6 +44,9 @@ class AppContainer(context: Context) {
     private val savedBaseUrl: String? = runBlocking { settingsStore.baseUrl.first() }
     val configured: Boolean = savedBaseUrl != null
 
+    /** The server this app talks to, as typed by a person (no scheme path), or "" if none. */
+    val serverAddress: String = savedBaseUrl?.removeSuffix("/api/").orEmpty()
+
     // Unconfigured, nothing calls the API (the setup screen has its own client), but Retrofit
     // wants some URL to build with.
     private val baseUrl: String = savedBaseUrl ?: "http://localhost/api/"

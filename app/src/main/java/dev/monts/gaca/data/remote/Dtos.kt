@@ -97,24 +97,6 @@ data class TakeToChatDto(
 )
 
 @Serializable
-data class RegisterRequest(
-    val name: String,
-    val email: String,
-    val password: String,
-)
-
-@Serializable
-data class UserLoginRequest(
-    val email: String,
-    val password: String,
-)
-
-@Serializable
-data class GoogleLoginRequest(
-    @SerialName("id_token") val idToken: String,
-)
-
-@Serializable
 data class TokenResponse(
     @SerialName("access_token") val accessToken: String,
     @SerialName("token_type") val tokenType: String = "bearer",

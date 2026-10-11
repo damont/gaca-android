@@ -18,5 +18,16 @@ fun normalizeServerUrl(input: String, allowHttp: Boolean): String? {
     return url.newBuilder().encodedPath("$path/api/").build().toString()
 }
 
-/** `gaca://setup?url=…&code=…` — what `gaca-api setup-code --url` prints and the QR code carries. */
+/** `gaca://setup?url=…&code=…` — what `gaca-api pair` prints and its QR code carries. */
 data class SetupLink(val url: String?, val code: String?)
+
+/** The link in a scanned QR code or a tapped `gaca://setup` link, or null if it is anything else. */
+fun parseSetupLink(text: String?): SetupLink? {
+    val uri = runCatching { java.net.URI(text?.trim() ?: return null) }.getOrNull() ?: return null
+    if (uri.scheme != "gaca" || uri.host != "setup") return null
+    val params = (uri.rawQuery ?: "").split("&").filter { it.isNotEmpty() }.associate {
+        val (key, value) = (it.split("=", limit = 2) + "").take(2)
+        java.net.URLDecoder.decode(key, "UTF-8") to java.net.URLDecoder.decode(value, "UTF-8")
+    }
+    return SetupLink(params["url"], params["code"])
+}

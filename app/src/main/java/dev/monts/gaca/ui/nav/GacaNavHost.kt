@@ -42,12 +42,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.monts.gaca.di.AppContainer
-import dev.monts.gaca.ui.auth.LoginScreen
+import dev.monts.gaca.ui.setup.SetupScreen
+import dev.monts.gaca.ui.setup.rememberSetupViewModel
+import dev.monts.gaca.util.SetupLink
 import dev.monts.gaca.ui.artifact.ArtifactViewModel
 import dev.monts.gaca.ui.artifact.ArtifactViewScreen
 import dev.monts.gaca.ui.artifact.ArtifactsScreen
 import dev.monts.gaca.ui.artifact.ArtifactsViewModel
-import dev.monts.gaca.ui.auth.LoginViewModel
 import dev.monts.gaca.ui.common.ArtifactLinkEnv
 import dev.monts.gaca.ui.common.LocalArtifactLinks
 import dev.monts.gaca.ui.chat.ChatListScreen
@@ -109,6 +110,8 @@ fun GacaNavHost(
     onPendingSessionConsumed: () -> Unit = {},
     pendingArtifactId: String? = null,
     onPendingArtifactConsumed: () -> Unit = {},
+    pendingSetupLink: SetupLink? = null,
+    onPendingSetupConsumed: () -> Unit = {},
 ) {
     val authState by container.authRepository.state.collectAsState()
 
@@ -191,10 +194,16 @@ fun GacaNavHost(
         startDestination = if (authState.user != null) ROUTE_CHAT else ROUTE_LOGIN,
     ) {
         composable(ROUTE_LOGIN) {
-            val vm = viewModel<LoginViewModel>(
-                factory = viewModelFactory { initializer { LoginViewModel(container.authRepository) } },
-            )
-            LoginScreen(vm)
+            // Signed out (this phone was unpaired from the server): pair again.
+            val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as dev.monts.gaca.GacaApp
+            val vm = rememberSetupViewModel(app, container, initialAddress = container.serverAddress)
+            LaunchedEffect(pendingSetupLink) {
+                if (pendingSetupLink != null) {
+                    vm.applyLink(pendingSetupLink)
+                    onPendingSetupConsumed()
+                }
+            }
+            SetupScreen(vm)
         }
         composable(ROUTE_DAILY) {
             val vm = viewModel<DailyViewModel>(

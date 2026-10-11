@@ -101,18 +101,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
         Text("SERVER", style = MaterialTheme.typography.labelMedium, color = TextMeta)
         Spacer(Modifier.height(8.dp))
         Text(state.baseUrlInput.removeSuffix("/api/"), style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
-        Spacer(Modifier.height(12.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ChipBackground)
-                .clickable(onClick = viewModel::switchServer)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Use a different server", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
-        }
 
         // GET /agent is a real, dedicated record of whether this account is
         // connected and where — not inferred from the crew list. The crew member
@@ -210,11 +198,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(SeverityUrgentBg)
-                .clickable(onClick = viewModel::logout)
+                .clickable(onClick = viewModel::disconnect)
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Sign out", style = MaterialTheme.typography.labelLarge, color = SeverityUrgentDot)
+            Text("Disconnect from this server", style = MaterialTheme.typography.labelLarge, color = SeverityUrgentDot)
         }
 
         Spacer(Modifier.height(24.dp))
