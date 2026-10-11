@@ -44,5 +44,6 @@ class SessionsRepository(
 
     /** `assistant.delta` / `tool.started` / `run.completed` / `run.failed`, in order,
      * reconnecting on its own if the connection drops. */
-    fun events(sessionId: String): Flow<SseEvent> = sseClient.stream("sessions/$sessionId/events")
+    fun events(sessionId: String, resumeSeq: Long = 0): Flow<SseEvent> =
+        sseClient.stream("sessions/$sessionId/events", initialLastEventId = resumeSeq.toString())
 }

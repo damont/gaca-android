@@ -80,7 +80,18 @@ data class ConversationMessage(
     val attachments: List<MessageAttachment> = emptyList(),
     /** Thumbnails for a message just sent from this device, shown until the server's copy loads. */
     val localPreviews: List<android.graphics.Bitmap> = emptyList(),
+    /** What to render (artifact links already removed by the API); falls back to [content]. */
+    val displayContent: String = content,
+    val artifacts: List<MessageArtifact> = emptyList(),
+    val activity: MessageActivity? = null,
+    /** True for a message just sent from this device that the server hasn't echoed back yet. */
+    val pending: Boolean = false,
 )
+
+data class MessageArtifact(val id: String, val title: String, val description: String?, val missing: Boolean)
+
+data class MessageActivity(val label: String, val tools: List<ActivityTool>)
+data class ActivityTool(val name: String, val count: Int, val errors: Int)
 
 /** A photo on a message; [url] is relative to the API base and must be fetched with auth. */
 data class MessageAttachment(val id: String, val url: String)
@@ -88,6 +99,9 @@ data class MessageAttachment(val id: String, val url: String)
 fun MessageDto.toDomain(): ConversationMessage = ConversationMessage(
     id, role, content, createdAt,
     attachments = attachments.map { MessageAttachment(it.id, it.url) },
+    displayContent = displayContent ?: content,
+    artifacts = artifacts.map { MessageArtifact(it.id, it.title, it.description, it.missing) },
+    activity = activity?.let { a -> MessageActivity(a.label, a.tools.map { ActivityTool(it.name, it.count, it.errors) }) },
 )
 
 /** `data` is arbitrary JSON from whatever posted the alert — render it, never assume its shape. */
