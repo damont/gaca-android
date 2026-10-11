@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,14 +5,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
 }
-
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
-}
-// No server address ships in the app: people enter their own (or scan a setup link). A developer
-// can still pin one here, e.g. DEFAULT_BASE_URL=https://example.com/api/ in local.properties.
-val defaultBaseUrl: String = localProperties.getProperty("DEFAULT_BASE_URL", "")
 
 android {
     namespace = "dev.monts.gaca"
@@ -27,7 +17,6 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "DEFAULT_BASE_URL", "\"$defaultBaseUrl\"")
     }
 
     buildTypes {
