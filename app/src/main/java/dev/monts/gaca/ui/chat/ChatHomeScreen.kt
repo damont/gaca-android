@@ -51,7 +51,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import dev.monts.gaca.R
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.ui.common.BrandMark
 import dev.monts.gaca.data.repo.Session
 import dev.monts.gaca.ui.common.ChatComposer
 import dev.monts.gaca.ui.common.ComposerError
@@ -150,12 +152,15 @@ private fun HomeList(state: ChatHomeUiState, onSelect: (String) -> Unit, onOpenT
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = HeaderAccent) }
             }
             state.sessions.isEmpty() -> item {
-                Text(
-                    if (state.crew.isEmpty()) "No crew configured yet — set one up in Settings first." else "Say something to start a new chat.",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
-                    color = TextSecondary,
-                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp),
-                )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BrandMark(R.drawable.ic_gaca_in_flight, "Gaca in flight", 132.dp)
+                    Text(
+                        if (state.crew.isEmpty()) "No crew configured yet — set one up in Settings first." else "Say something to start a new chat.",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+                        color = TextSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
             }
             else -> items(state.sessions.take(RECENT_CHATS), key = { it.id }) { session ->
                 ChatSessionRow(session, crewByName[session.crew], onTap = { onOpenThread(session.id) })

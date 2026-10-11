@@ -31,6 +31,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.monts.gaca.R
+import dev.monts.gaca.ui.common.BrandMark
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
@@ -65,8 +67,10 @@ fun SetupScreen(viewModel: SetupViewModel) {
             .padding(horizontal = 28.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("Gaca", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
-        Text("Connect to your server", style = MaterialTheme.typography.bodyMedium, color = TextMeta)
+        BrandMark(R.drawable.ic_gaca_wings_level, "Gaca, wings level", 132.dp, Modifier.align(Alignment.CenterHorizontally))
+        Spacer(Modifier.height(12.dp))
+        Text("Gaca", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text("Connect to your server", style = MaterialTheme.typography.bodyMedium, color = TextMeta, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(28.dp))
 
         if (s.mode == PairMode.SCAN) {

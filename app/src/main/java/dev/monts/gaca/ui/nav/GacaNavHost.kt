@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -98,7 +98,7 @@ private data class BottomNavTab(val route: String, val label: String, val icon: 
 private val bottomNavTabs = listOf(
     BottomNavTab(ROUTE_CHAT, "Chat", Icons.AutoMirrored.Filled.Chat),
     BottomNavTab(ROUTE_DAILY, "Today", Icons.Filled.WbSunny),
-    BottomNavTab(ROUTE_INBOX, "Inbox", Icons.Filled.Inbox),
+    BottomNavTab(ROUTE_INBOX, "Alerts", Icons.Filled.Notifications),
     BottomNavTab(ROUTE_ARTIFACTS, "Artifacts", Icons.Filled.Dashboard),
     BottomNavTab(ROUTE_SKILLS, "Skills", Icons.Filled.AutoAwesome),
 )
