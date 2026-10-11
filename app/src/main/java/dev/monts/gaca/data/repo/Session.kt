@@ -20,17 +20,28 @@ data class Session(
     val summary: String?,
     /** One-line preview of the latest message — computed by the API, display only. */
     val preview: String?,
+    /** Latest message's time (else creation time) — the time to show and group a chat by. */
+    val lastActivityAt: String = createdAt,
 )
 
-fun SessionDto.toDomain(): Session = Session(id, createdAt, title, status, crew, alertId, summary, preview)
+fun SessionDto.toDomain(): Session =
+    Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt)
 
 /** [Session] plus its transcript, oldest first — GET /sessions/{id}. */
 data class SessionDetail(
     val session: Session,
     val messages: List<ConversationMessage>,
+    /** A run for this session is in flight right now, since [runStartedAt]. */
+    val running: Boolean = false,
+    val runStartedAt: String? = null,
+    /** The Last-Event-ID to open the event stream with, so only the in-flight run replays. */
+    val resumeSeq: Long = 0,
 )
 
 fun SessionDetailDto.toDomain(): SessionDetail = SessionDetail(
-    session = Session(id, createdAt, title, status, crew, alertId, summary, preview),
+    session = Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt),
     messages = messages.map { it.toDomain() },
+    running = running,
+    runStartedAt = runStartedAt,
+    resumeSeq = resumeSeq,
 )

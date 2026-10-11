@@ -168,7 +168,32 @@ data class MessageDto(
     val content: String,
     @SerialName("created_at") val createdAt: String,
     val attachments: List<AttachmentDto> = emptyList(),
+    /** What to render — `content` minus artifact links, computed by the API (null on older servers). */
+    @SerialName("display_content") val displayContent: String? = null,
+    /** Pages linked from this message, resolved by the API. */
+    val artifacts: List<MessageArtifactDto> = emptyList(),
+    /** What the agent did to produce this reply; null when it used no tools. */
+    val activity: ActivityDto? = null,
 )
+
+@Serializable
+data class MessageArtifactDto(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    val crew: String? = null,
+    val missing: Boolean = false,
+)
+
+@Serializable
+data class ActivityDto(
+    val tools: List<ActivityToolDto> = emptyList(),
+    @SerialName("duration_seconds") val durationSeconds: Double = 0.0,
+    val label: String = "",
+)
+
+@Serializable
+data class ActivityToolDto(val name: String, val count: Int = 1, val errors: Int = 0)
 
 /** A photo on a message. [url] is relative to the API base and needs the bearer token. */
 @Serializable
@@ -194,6 +219,8 @@ data class SessionDto(
     val summary: String? = null,
     /** One-line preview of the latest message, computed by the API. */
     val preview: String? = null,
+    /** Latest message's time, else creation time — what the list is sorted and labelled by. */
+    @SerialName("last_activity_at") val lastActivityAt: String? = null,
 )
 
 /** GET /sessions. */
@@ -220,7 +247,13 @@ data class SessionDetailDto(
     @SerialName("alert_id") val alertId: String? = null,
     val summary: String? = null,
     val preview: String? = null,
+    @SerialName("last_activity_at") val lastActivityAt: String? = null,
     val messages: List<MessageDto> = emptyList(),
+    /** A run for this session is in flight right now. */
+    val running: Boolean = false,
+    @SerialName("run_started_at") val runStartedAt: String? = null,
+    /** The Last-Event-ID to open the event stream with. */
+    @SerialName("resume_seq") val resumeSeq: Long = 0,
 )
 
 /** Body for POST /sessions/{id}/messages. */

@@ -32,3 +32,16 @@ fun crewColor(hex: String): Color = Color(android.graphics.Color.parseColor(hex)
 /** A low-alpha wash of a crew member's color, for a chip/pill background — the
  * same trick as the existing `kind` chip's translucent white, just tinted per crew. */
 fun crewChipTint(hex: String): Color = crewColor(hex).copy(alpha = 0.16f)
+
+/** The user's own chat bubbles. */
+val UserBubble = HeaderAccent
+val ActivityPill = Color(0xFFE3E8EE)
+
+/** The crew color mixed 80% toward white — pill and icon-tile backgrounds. */
+fun crewTint(hex: String): Color = androidx.compose.ui.graphics.lerp(crewColor(hex), Color.White, 0.8f)
+
+/** The crew color mixed 25% toward black — names and text that sit on a light surface. */
+fun crewInk(hex: String): Color = androidx.compose.ui.graphics.lerp(crewColor(hex), Color.Black, 0.25f)
+
+/** The crew color mixed 12% toward black — buttons that carry light text. */
+fun crewSolid(hex: String): Color = androidx.compose.ui.graphics.lerp(crewColor(hex), Color.Black, 0.12f)

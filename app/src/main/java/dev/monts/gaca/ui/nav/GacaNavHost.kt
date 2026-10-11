@@ -51,6 +51,8 @@ import dev.monts.gaca.ui.artifact.ArtifactsScreen
 import dev.monts.gaca.ui.artifact.ArtifactsViewModel
 import dev.monts.gaca.ui.common.ArtifactLinkEnv
 import dev.monts.gaca.ui.common.LocalArtifactLinks
+import dev.monts.gaca.ui.chat.ChatHomeScreen
+import dev.monts.gaca.ui.chat.ChatHomeViewModel
 import dev.monts.gaca.ui.chat.ChatListScreen
 import dev.monts.gaca.ui.chat.ChatListViewModel
 import dev.monts.gaca.ui.chatthread.ChatThreadScreen
@@ -229,30 +231,17 @@ fun GacaNavHost(
             }
         }
         composable(ROUTE_CHAT) {
-            // The Chat tab is a draft: a blank new chat with the last-used crew member. No session
-            // exists on the server until something is sent.
-            val vm = viewModel<ChatThreadViewModel>(
+            val vm = viewModel<ChatHomeViewModel>(
                 factory = viewModelFactory {
-                    initializer {
-                        ChatThreadViewModel(
-                            null,
-                            container.sessionsRepository,
-                            container.authRepository,
-                            container.alertsRepository,
-                        )
-                    }
+                    initializer { ChatHomeViewModel(container.sessionsRepository, container.authRepository) }
                 },
             )
             TabbedScreen(navController, currentRoute) {
-                ChatThreadScreen(
+                ChatHomeScreen(
                     vm,
-                    onBack = {},
-                    onOpenAlert = { alertId -> navController.navigate("detail/$alertId") },
-                    onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
-                    showBack = false,
+                    onOpenThread = { sessionId -> navController.navigate("chat-thread/$sessionId") },
                     onOpenHistory = { navController.navigate(ROUTE_CHAT_HISTORY) },
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                    onOpenSession = { sessionId -> navController.navigate("chat-thread/$sessionId") },
                 )
             }
         }
