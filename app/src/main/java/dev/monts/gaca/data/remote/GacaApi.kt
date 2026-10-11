@@ -17,14 +17,9 @@ import retrofit2.http.Query
  */
 interface GacaApi {
 
-    @POST("auth/register")
-    suspend fun register(@Body body: RegisterRequest): TokenResponse
-
-    @POST("auth/login")
-    suspend fun login(@Body body: UserLoginRequest): TokenResponse
-
-    @POST("auth/google")
-    suspend fun googleLogin(@Body body: GoogleLoginRequest): TokenResponse
+    /** This phone leaves the server: its credential stops working. */
+    @DELETE("devices/me")
+    suspend fun unpairThisDevice()
 
     @GET("auth/me")
     suspend fun me(): UserResponse

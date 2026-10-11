@@ -34,6 +34,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="gaca" android:host="artifact" />
             </intent-filter>
+            <!-- gaca://setup?url=<server>&code=<setup code>: what the server's QR code carries. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gaca" android:host="setup" />
+            </intent-filter>
         </activity>
 
         <service

@@ -6,10 +6,7 @@ import dev.monts.gaca.data.remote.CrewDto
 import dev.monts.gaca.data.remote.CrewMemberCreateRequest
 import dev.monts.gaca.data.remote.CrewMemberUpdateRequest
 import dev.monts.gaca.data.remote.GacaApi
-import dev.monts.gaca.data.remote.GoogleLoginRequest
-import dev.monts.gaca.data.remote.RegisterRequest
-import dev.monts.gaca.data.remote.UserLoginRequest
-import dev.monts.gaca.util.friendlyMessage
+import retrofit2.HttpException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,12 +45,7 @@ data class AuthUiState(
     val error: String? = null,
 )
 
-/**
- * Session state + the four ways to establish one (api-contract.md §1: the app
- * uses /api/auth/login and /api/auth/google; register exists for completeness).
- * Mirrors frontend/src/context/AuthContext.tsx's shape deliberately, since
- * that's the reference the API was validated against.
- */
+/** Whether this phone holds a working credential for its server, and the crew calls that need one. */
 class AuthRepository(
     private val api: GacaApi,
     private val tokenStore: TokenStore,
@@ -61,7 +53,12 @@ class AuthRepository(
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
-    /** Called once at app start: a stored token is only a claim, so ask the API who it belongs to. */
+    /**
+     * Called once at app start: a stored credential is only a claim, so ask the API who it belongs
+     * to. Only a definite "no" (401: this device was unpaired) drops it. A server that is merely
+     * unreachable or having a bad moment must not unpair the phone, so then the app opens anyway
+     * and each screen shows its own error.
+     */
     suspend fun restoreSession() {
         if (tokenStore.getTokenSync() == null) {
             _state.value = AuthUiState(user = null, loading = false)
@@ -70,50 +67,27 @@ class AuthRepository(
         try {
             val me = api.me()
             _state.value = AuthUiState(user = User(me.id, me.name, me.email), loading = false)
+        } catch (e: HttpException) {
+            if (e.code() == 401) {
+                tokenStore.clear()
+                _state.value = AuthUiState(user = null, loading = false)
+            } else {
+                _state.value = AuthUiState(user = User("", "", ""), loading = false)
+            }
         } catch (e: Exception) {
-            tokenStore.clear()
-            _state.value = AuthUiState(user = null, loading = false)
+            _state.value = AuthUiState(user = User("", "", ""), loading = false)
         }
     }
 
-    suspend fun login(email: String, password: String): Result<Unit> = runCatching {
-        _state.value = _state.value.copy(error = null)
-        val token = api.login(UserLoginRequest(email, password))
-        tokenStore.saveToken(token.accessToken)
-        val me = api.me()
-        _state.value = AuthUiState(user = User(me.id, me.name, me.email), loading = false)
-    }.onFailure { e -> _state.value = _state.value.copy(error = e.friendlyMessage()) }
-
-    suspend fun register(name: String, email: String, password: String): Result<Unit> = runCatching {
-        _state.value = _state.value.copy(error = null)
-        val token = api.register(RegisterRequest(name, email, password))
-        tokenStore.saveToken(token.accessToken)
-        val me = api.me()
-        _state.value = AuthUiState(user = User(me.id, me.name, me.email), loading = false)
-    }.onFailure { e -> _state.value = _state.value.copy(error = e.friendlyMessage()) }
-
-    suspend fun googleLogin(idToken: String): Result<Unit> = runCatching {
-        _state.value = _state.value.copy(error = null)
-        val token = api.googleLogin(GoogleLoginRequest(idToken))
-        tokenStore.saveToken(token.accessToken)
-        val me = api.me()
-        _state.value = AuthUiState(user = User(me.id, me.name, me.email), loading = false)
-    }.onFailure { e -> _state.value = _state.value.copy(error = e.friendlyMessage()) }
+    /** Tell the server this phone is leaving (so its credential is revoked), then forget it here. */
+    suspend fun disconnect() {
+        runCatching { api.unpairThisDevice() } // best effort: the server may be gone
+        logout()
+    }
 
     suspend fun logout() {
         tokenStore.clear()
         _state.value = AuthUiState(user = null, loading = false)
-    }
-
-    /**
-     * Clears a leftover error before starting a Google sign-in attempt.
-     * Needed specifically because that flow can fail (or be cancelled) in the
-     * Credential Manager step, before ever reaching [googleLogin] — which is
-     * the only place that would otherwise clear a stale error from an earlier
-     * failed email/password attempt.
-     */
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
     }
 
     /** This account's shared host + every crew member configured under it — see api-contract.md §2, §10.

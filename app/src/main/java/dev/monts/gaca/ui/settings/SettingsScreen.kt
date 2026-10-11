@@ -100,30 +100,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
 
         Text("SERVER", style = MaterialTheme.typography.labelMedium, color = TextMeta)
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = state.baseUrlInput,
-            onValueChange = viewModel::setBaseUrlInput,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("API base URL") },
-        )
-        Text(
-            "Ends in /api/. Change this to point at a dev box on your LAN — restart the app afterward for it to take effect.",
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMeta,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        Spacer(Modifier.height(12.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(HeaderAccent)
-                .clickable(onClick = viewModel::saveBaseUrl)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(if (state.saved) "Saved" else "Save", style = MaterialTheme.typography.labelLarge, color = OnAccent)
-        }
+        Text(state.baseUrlInput.removeSuffix("/api/"), style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
 
         // GET /agent is a real, dedicated record of whether this account is
         // connected and where — not inferred from the crew list. The crew member
@@ -221,11 +198,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(SeverityUrgentBg)
-                .clickable(onClick = viewModel::logout)
+                .clickable(onClick = viewModel::disconnect)
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Sign out", style = MaterialTheme.typography.labelLarge, color = SeverityUrgentDot)
+            Text("Disconnect from this server", style = MaterialTheme.typography.labelLarge, color = SeverityUrgentDot)
         }
 
         Spacer(Modifier.height(24.dp))

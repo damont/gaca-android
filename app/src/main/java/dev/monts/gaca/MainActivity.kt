@@ -11,6 +11,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import dev.monts.gaca.ui.setup.SetupScreen
+import dev.monts.gaca.ui.setup.rememberSetupViewModel
+import dev.monts.gaca.util.parseSetupLink
+import dev.monts.gaca.util.SetupLink
 import dev.monts.gaca.push.EXTRA_ALERT_ID
 import dev.monts.gaca.push.EXTRA_SESSION_ID
 import dev.monts.gaca.ui.nav.GacaNavHost
@@ -21,6 +27,7 @@ class MainActivity : ComponentActivity() {
     private val pendingAlertId = mutableStateOf<String?>(null)
     private val pendingSessionId = mutableStateOf<String?>(null)
     private val pendingArtifactId = mutableStateOf<String?>(null)
+    private val pendingSetupLink = mutableStateOf<SetupLink?>(null)
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means no future pushes show — nothing to react to here */ }
@@ -31,20 +38,39 @@ class MainActivity : ComponentActivity() {
         pendingAlertId.value = intent?.getStringExtra(EXTRA_ALERT_ID)
         pendingSessionId.value = intent?.getStringExtra(EXTRA_SESSION_ID)
         pendingArtifactId.value = artifactIdFrom(intent)
+        pendingSetupLink.value = setupLinkFrom(intent)
         requestNotificationPermissionIfNeeded()
 
-        val container = (application as GacaApp).container
+        val app = application as GacaApp
         setContent {
             GacaTheme {
+                val container = app.container
+                if (!container.configured) {
+                    val setupViewModel = rememberSetupViewModel(app, container)
+                    val link = pendingSetupLink.value
+                    LaunchedEffect(link) {
+                        if (link != null) {
+                            setupViewModel.applyLink(link)
+                            pendingSetupLink.value = null
+                        }
+                    }
+                    SetupScreen(setupViewModel)
+                    return@GacaTheme
+                }
+                // A new container (another server, signed out) starts the whole UI fresh.
+                key(container) {
                 GacaNavHost(
                     container = container,
                     pendingAlertId = pendingAlertId.value,
                     onPendingAlertConsumed = { pendingAlertId.value = null },
                     pendingSessionId = pendingSessionId.value,
                     onPendingSessionConsumed = { pendingSessionId.value = null },
+                    pendingSetupLink = pendingSetupLink.value,
+                    onPendingSetupConsumed = { pendingSetupLink.value = null },
                     pendingArtifactId = pendingArtifactId.value,
                     onPendingArtifactConsumed = { pendingArtifactId.value = null },
                 )
+                }
             }
         }
     }
@@ -56,6 +82,12 @@ class MainActivity : ComponentActivity() {
         pendingAlertId.value = intent.getStringExtra(EXTRA_ALERT_ID)
         pendingSessionId.value = intent.getStringExtra(EXTRA_SESSION_ID)
         pendingArtifactId.value = artifactIdFrom(intent)
+        pendingSetupLink.value = setupLinkFrom(intent)
+    }
+
+    /** `gaca://setup?url=…&code=…` (what the QR code from `gaca-api pair` carries); acted on while this phone is not paired. */
+    private fun setupLinkFrom(intent: Intent?): SetupLink? {
+        return parseSetupLink(intent?.dataString)
     }
 
     /** `gaca://artifact/<id>` → the id (ids are 32 hex characters; anything else is ignored). */
