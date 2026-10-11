@@ -15,7 +15,6 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val baseUrlInput: String = "",
-    val saved: Boolean = false,
 
     // "Agent" — api-contract.md §2: GET /agent is the real, dedicated record of
     // whether this account is connected and where. Connecting a new agent
@@ -49,6 +48,8 @@ class SettingsViewModel(
     private val settingsStore: SettingsStore,
     private val authRepository: AuthRepository,
     private val pushRepository: PushRepository,
+    /** Rebuilds the app around whatever server is saved now (GacaApp.reconfigure). */
+    private val onServerChanged: () -> Unit,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -56,7 +57,7 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            settingsStore.baseUrl.collect { url -> _uiState.update { it.copy(baseUrlInput = url) } }
+            settingsStore.baseUrl.collect { url -> _uiState.update { it.copy(baseUrlInput = url.orEmpty()) } }
         }
         loadAgentStatus()
         loadCrew()
@@ -76,12 +77,13 @@ class SettingsViewModel(
         }
     }
 
-    fun setBaseUrlInput(value: String) = _uiState.update { it.copy(baseUrlInput = value, saved = false) }
-
-    fun saveBaseUrl() {
+    /** Sign out and forget the server: the app goes back to asking which one to use. */
+    fun switchServer() {
         viewModelScope.launch {
-            settingsStore.setBaseUrl(_uiState.value.baseUrlInput)
-            _uiState.update { it.copy(saved = true) }
+            runCatching { pushRepository.unregisterCurrentToken() } // best effort; the old server may be gone
+            authRepository.logout()
+            settingsStore.clearBaseUrl()
+            onServerChanged()
         }
     }
 

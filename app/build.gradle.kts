@@ -18,6 +18,9 @@ val localProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+// No server address ships in the app: people enter their own (or scan a setup link). A developer
+// can still pin one here, e.g. DEFAULT_BASE_URL=https://example.com/api/ in local.properties.
+val defaultBaseUrl: String = localProperties.getProperty("DEFAULT_BASE_URL", "")
 
 android {
     namespace = "dev.monts.gaca"
@@ -30,7 +33,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "DEFAULT_BASE_URL", "\"https://goodandcheapagent.com/api/\"")
+        buildConfigField("String", "DEFAULT_BASE_URL", "\"$defaultBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
@@ -95,4 +98,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging.ktx)
+
+    testImplementation("junit:junit:4.13.2")
 }

@@ -37,6 +37,7 @@ class GacaFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         val container = (application as GacaApp).container
+        if (!container.configured) return // no server yet; the token is registered after setup
         scope.launch { container.pushRepository.registerToken(token) }
     }
 

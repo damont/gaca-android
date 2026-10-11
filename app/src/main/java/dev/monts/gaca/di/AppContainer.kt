@@ -25,10 +25,9 @@ import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 /**
- * Manual DI, built once at process start. The base URL is read once here —
- * changing it in Settings takes effect on next app restart rather than
- * rebuilding Retrofit live, which is a deliberate simplification (see
- * SettingsScreen).
+ * Manual DI. The base URL is read once per container, so pointing the app at a different
+ * server means building a new container (GacaApp.reconfigure) rather than rebuilding
+ * Retrofit live. [configured] is false until a server has been set up.
  */
 class AppContainer(context: Context) {
 
@@ -42,7 +41,12 @@ class AppContainer(context: Context) {
         explicitNulls = false
     }
 
-    private val baseUrl: String = runBlocking { settingsStore.baseUrl.first() }
+    private val savedBaseUrl: String? = runBlocking { settingsStore.baseUrl.first() }
+    val configured: Boolean = savedBaseUrl != null
+
+    // Unconfigured, nothing calls the API (the setup screen has its own client), but Retrofit
+    // wants some URL to build with.
+    private val baseUrl: String = savedBaseUrl ?: "http://localhost/api/"
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor(tokenStore))

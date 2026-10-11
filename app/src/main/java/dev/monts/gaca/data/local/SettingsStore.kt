@@ -12,18 +12,22 @@ private val Context.dataStore by preferencesDataStore(name = "gaca_settings")
 private val KEY_BASE_URL = stringPreferencesKey("base_url")
 
 /**
- * Just the API base URL for now. Production defaults to the Cloudflare
- * Tunnel domain (BuildConfig.DEFAULT_BASE_URL); overriding it here is what
- * lets the app point at a dev box on the LAN instead — see SettingsScreen.
+ * Which server the app talks to — null until someone has set one up. Public builds ship with
+ * none; a developer can bake one in with DEFAULT_BASE_URL in local.properties (see build.gradle.kts).
  */
 class SettingsStore(private val context: Context) {
 
-    val baseUrl: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_BASE_URL] ?: BuildConfig.DEFAULT_BASE_URL
+    val baseUrl: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_BASE_URL] ?: BuildConfig.DEFAULT_BASE_URL.ifBlank { null }
     }
 
+    /** Expects the normalized form (ends in `/api/`) — see util/ServerAddress.kt. */
     suspend fun setBaseUrl(url: String) {
-        val normalized = if (url.endsWith("/")) url else "$url/"
-        context.dataStore.edit { it[KEY_BASE_URL] = normalized }
+        context.dataStore.edit { it[KEY_BASE_URL] = url }
+    }
+
+    /** Back to "no server": the setup screen shows. A baked-in developer default still applies. */
+    suspend fun clearBaseUrl() {
+        context.dataStore.edit { it.remove(KEY_BASE_URL) }
     }
 }
