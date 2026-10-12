@@ -15,7 +15,7 @@ There is no sign-in and no built-in server address. You **pair** the phone with 
 
 A phone talks to one server at a time. **Settings → Disconnect from this server** unpairs it (the server forgets the
 phone and stops its alerts) so you can pair with another. More phones can pair with the same server; `gaca-api device list`
-shows them. Only `https` addresses are accepted in release builds.
+shows them.
 
 ## Build
 
