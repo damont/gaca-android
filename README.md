@@ -28,12 +28,22 @@ You need Android Studio (or a JDK 17 and the Android SDK 35) and a `google-servi
 ./gradlew test
 ```
 
-## Push notifications
+## Push notifications: the secrets involved
 
-Push comes from your server straight to Google (Firebase), so it only works for an app built under the Firebase project the
-server's key belongs to. Build the app with **your** `google-services.json`, then give the server the matching service-account
-key: `gaca-api push android` (or answer the installer's push question). Without push, alerts still appear whenever you open
-the app. Details are in the [gaca README](https://github.com/damont/gaca#push-notifications-optional).
+Alerts always show in the app when you open it. To make them buzz your phone, your **server** sends each one to Google
+(Firebase Cloud Messaging) itself, so two files from the same Firebase project have to line up. Only the second is secret.
+
+| file | what it is | where it goes |
+|---|---|---|
+| `google-services.json` | the app's Firebase config: Firebase console → Project settings → Your apps → Android (package `dev.monts.gaca`) | `app/google-services.json` in this repo's checkout, used when you build the app. Not committed |
+| service-account key (JSON) | lets the server send messages: Firebase console → Project settings → Service accounts → **Generate new private key** | on the server only, never in this repo or the app |
+
+On the server run `gaca-api push android` (it asks for the key file), or answer the installer's push question. The server keeps
+the key in `~/.config/gaca/secrets/` with owner-only permissions; `gaca-api push status` shows what is on. Both files must come
+from the **same** Firebase project: an app built with someone else's `google-services.json` cannot be pushed to by your key. So
+build the app yourself with your own project. Without push, alerts still appear whenever you open the app.
+
+More in the [gaca README](https://github.com/damont/gaca#push-notifications-optional).
 
 ## Layout
 
