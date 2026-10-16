@@ -11,7 +11,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Matches gaca-planning/alerts/api-contract.md. Base URL always ends in
+ * Matches the gaca-api schema (<base>/api/openapi.json). Base URL always ends in
  * `/api/` (see [dev.monts.gaca.data.local.SettingsStore]), so every path here
  * is relative to that and carries no leading slash.
  */
