@@ -90,16 +90,17 @@ class ArtifactRepository(
         runCatching { api.markArtifactOpened(id) }
     }
 
-    /** The page's HTML, fetched with the user's token (the page itself never sees the token). */
-    suspend fun html(id: String): String = withContext(Dispatchers.IO) {
-        client.newCall(Request.Builder().url("${baseUrl}artifacts/$id/html").build()).execute().use { response ->
+    /** The page ready to show: the API wraps the agent's HTML with the network-blocking policy, the theme, the base
+     * style and the `window.app` SDK, so every client (this one, iPhone, web) shows the same thing. Fetched with the
+     * user's token; the page itself never sees it. */
+    suspend fun page(id: String): String = withContext(Dispatchers.IO) {
+        client.newCall(Request.Builder().url("${baseUrl}artifacts/$id/page").build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException("page ${response.code}")
             response.body?.string() ?: throw IOException("empty page")
         }
     }
 
-    /** One call to the API for the page bridge. [path] is relative to the API base; the bridge
-     * builds it from a fixed set of shapes, never from page-supplied text. */
+    /** One call to the API for the page bridge. [path] is relative to the API base. */
     suspend fun raw(method: String, path: String, json: String?): RawResponse = withContext(Dispatchers.IO) {
         val body = if (method == "GET" || method == "DELETE") null else (json ?: "{}").toRequestBody(JSON)
         val request = Request.Builder().url(baseUrl + path).method(method, body).build()

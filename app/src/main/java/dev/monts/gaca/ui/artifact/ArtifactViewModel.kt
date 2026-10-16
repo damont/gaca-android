@@ -25,13 +25,12 @@ data class ArtifactViewState(
     val finished: Boolean = false,
 )
 
-/** One open artifact page: fetches its HTML, and turns `app.ask(...)` from the page into a chat
+/** One open artifact page: fetches it (already wrapped by the API), and turns `app.ask(...)` from the page into a chat
  * with an unsent draft (in the chat the artifact was made for, or a new one with its crew member). */
 class ArtifactViewModel(
     private val artifactId: String,
     private val repo: ArtifactRepository,
     private val sessions: SessionsRepository,
-    private val sdk: String,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArtifactViewState())
@@ -46,11 +45,11 @@ class ArtifactViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val artifact = repo.get(artifactId)
-                val html = repo.html(artifactId)
+                val page = repo.page(artifactId)
                 _uiState.update {
                     it.copy(
                         artifact = artifact,
-                        document = ArtifactDocument.build(html, sdk, artifact.id, artifact.title),
+                        document = page,
                         loadCount = it.loadCount + 1,
                         isLoading = false,
                     )
@@ -65,12 +64,15 @@ class ArtifactViewModel(
     }
 
     /** The page asked to talk to the crew member: open a chat with [text] waiting, unsent. */
+    /** The chat made for this page the first time it asked, so asking again reuses it instead of piling up chats. */
+    private var askedSessionId: String? = null
+
     fun ask(text: String) {
         viewModelScope.launch {
             val artifact = _uiState.value.artifact ?: return@launch
             try {
-                val sessionId = artifact.sessionId
-                    ?: sessions.createSession(title = artifact.title, crew = artifact.crew).id
+                val sessionId = artifact.sessionId ?: askedSessionId
+                    ?: sessions.createSession(title = artifact.title, crew = artifact.crew).id.also { askedSessionId = it }
                 _uiState.update { it.copy(chatSessionId = sessionId, chatPrefill = text) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
