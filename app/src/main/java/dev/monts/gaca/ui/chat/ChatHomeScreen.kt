@@ -101,7 +101,7 @@ fun ChatHomeScreen(
         Modifier.fillMaxSize().background(PageBackground).windowInsetsPadding(WindowInsets.statusBars).imePadding(),
     ) {
         HomeTitleBar(onOpenHistory, onOpenSettings)
-        PullToRefreshBox(isRefreshing = false, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+        PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = { viewModel.refresh(isPullToRefresh = true) }, modifier = Modifier.weight(1f).fillMaxWidth()) {
             HomeList(state, onSelect = viewModel::selectCrew, onOpenThread = onOpenThread, onOpenHistory = onOpenHistory)
         }
         ComposerError(state.error)
