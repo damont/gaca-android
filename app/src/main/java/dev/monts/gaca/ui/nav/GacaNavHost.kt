@@ -275,13 +275,9 @@ fun GacaNavHost(
             arguments = listOf(navArgument("artifactId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val artifactId = backStackEntry.arguments?.getString("artifactId").orEmpty()
-            val context = androidx.compose.ui.platform.LocalContext.current
             val vm = viewModel<ArtifactViewModel>(
                 factory = viewModelFactory {
-                    initializer {
-                        val sdk = context.assets.open("artifact-sdk.js").bufferedReader().use { it.readText() }
-                        ArtifactViewModel(artifactId, container.artifactRepository, container.sessionsRepository, sdk)
-                    }
+                    initializer { ArtifactViewModel(artifactId, container.artifactRepository, container.sessionsRepository) }
                 },
             )
             ArtifactViewScreen(
