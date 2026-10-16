@@ -57,6 +57,7 @@ import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.push.ActiveChat
 import dev.monts.gaca.ui.common.ChatComposer
+import dev.monts.gaca.ui.common.rememberTakePhoto
 import dev.monts.gaca.ui.common.ComposerError
 import dev.monts.gaca.ui.common.CrewAvatar
 import dev.monts.gaca.ui.theme.ChipBackground
@@ -100,6 +101,7 @@ fun ChatThreadScreen(
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(PhotoPrep.MAX_PHOTOS),
     ) { uris -> viewModel.addPhotos(resolver, uris) }
+    val takePhoto = rememberTakePhoto { uri -> viewModel.addPhotos(resolver, listOf(uri)) }
     val member = state.crewMember
 
     Column(
@@ -125,6 +127,7 @@ fun ChatThreadScreen(
             sendColor = member?.let { crewSolid(it.color) } ?: HeaderAccent,
             onTextChange = viewModel::setMessageText,
             onPickPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onTakePhoto = takePhoto,
             onRemovePhoto = viewModel::removePhoto,
             onSend = viewModel::send,
         )

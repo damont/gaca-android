@@ -18,26 +18,38 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.monts.gaca.ui.theme.BorderColor
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
+import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SeverityUrgentDot
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
@@ -58,7 +70,7 @@ fun ComposerError(text: String?) {
 }
 
 /**
- * The floating white capsule shared by the Chat home and the thread: `+` for photos (up to
+ * The floating white capsule shared by the Chat home and the thread: `+` for photos, taken or picked (up to
  * [PhotoPrep.MAX_PHOTOS], shown as thumbnails with a remove badge), a growing text field, and a
  * round send button in the crew's solid color when sendable.
  */
@@ -72,6 +84,7 @@ fun ChatComposer(
     sendColor: Color,
     onTextChange: (String) -> Unit,
     onPickPhoto: () -> Unit,
+    onTakePhoto: () -> Unit,
     onRemovePhoto: (String) -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
@@ -87,8 +100,28 @@ fun ChatComposer(
         androidx.compose.foundation.layout.Column {
             if (photos.isNotEmpty() || preparingPhotos) PendingPhotos(photos, preparingPhotos, sendColor, onRemovePhoto)
             Row(Modifier.padding(4.dp), verticalAlignment = Alignment.Bottom) {
-                IconButton(onClick = onPickPhoto, enabled = photos.size < PhotoPrep.MAX_PHOTOS && !sending) {
-                    Icon(Icons.Filled.Add, contentDescription = "Attach photo", tint = TextSecondary)
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menuOpen = !menuOpen }, enabled = photos.size < PhotoPrep.MAX_PHOTOS && !sending) {
+                        Icon(
+                            if (menuOpen) Icons.Filled.Close else Icons.Filled.Add,
+                            contentDescription = if (menuOpen) "Close" else "Attach photo",
+                            tint = TextSecondary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        offset = DpOffset(0.dp, (-4).dp),
+                        shape = RoundedCornerShape(22.dp),
+                        containerColor = Color.White,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 10.dp,
+                        border = BorderStroke(0.5.dp, BorderColor),
+                    ) {
+                        AttachOption(Icons.Outlined.PhotoCamera, "Take photo") { menuOpen = false; onTakePhoto() }
+                        AttachOption(Icons.Outlined.Image, "Choose from library") { menuOpen = false; onPickPhoto() }
+                    }
                 }
                 Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
                     if (text.isEmpty()) Text(placeholder, style = FIELD_STYLE, color = TextMeta, maxLines = 1)
@@ -148,4 +181,18 @@ private fun PendingPhotos(photos: List<PreparedPhoto>, preparing: Boolean, accen
         }
         if (preparing) CircularProgressIndicator(color = accent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
     }
+}
+
+@Composable
+private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = TextPrimary) },
+        leadingIcon = {
+            Box(Modifier.size(36.dp).clip(CircleShape).background(PageBackground), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = HeaderAccent, modifier = Modifier.size(20.dp))
+            }
+        },
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = 56.dp).padding(horizontal = 4.dp),
+    )
 }

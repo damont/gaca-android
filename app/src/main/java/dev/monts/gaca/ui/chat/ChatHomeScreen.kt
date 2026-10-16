@@ -56,6 +56,7 @@ import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.ui.common.BrandMark
 import dev.monts.gaca.data.repo.Session
 import dev.monts.gaca.ui.common.ChatComposer
+import dev.monts.gaca.ui.common.rememberTakePhoto
 import dev.monts.gaca.ui.common.ComposerError
 import dev.monts.gaca.ui.common.CrewAvatar
 import dev.monts.gaca.ui.theme.HeaderAccent
@@ -93,6 +94,7 @@ fun ChatHomeScreen(
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(PhotoPrep.MAX_PHOTOS),
     ) { uris -> viewModel.addPhotos(resolver, uris) }
+    val takePhoto = rememberTakePhoto { uri -> viewModel.addPhotos(resolver, listOf(uri)) }
     val picked = state.picked
 
     Column(
@@ -112,6 +114,7 @@ fun ChatHomeScreen(
             sendColor = picked?.let { crewSolid(it.color) } ?: HeaderAccent,
             onTextChange = viewModel::setText,
             onPickPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onTakePhoto = takePhoto,
             onRemovePhoto = viewModel::removePhoto,
             onSend = viewModel::send,
         )
