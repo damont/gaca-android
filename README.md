@@ -49,3 +49,7 @@ More in the [gaca README](https://github.com/damont/gaca#push-notifications-opti
 
 `app/src/main/java/dev/monts/gaca/`: `ui/` (Compose screens; pairing is in `ui/setup/`), `data/remote` (API client),
 `data/repo`, `util/`. The app keeps no logic of its own beyond display: if it needs something new, change the API.
+
+## License
+
+Apache License 2.0 (see [`LICENSE`](LICENSE)). Copyright 2026 David Monts. Report security problems privately: see [`SECURITY.md`](SECURITY.md).

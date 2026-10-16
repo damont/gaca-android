@@ -4,9 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-// Mirrors gaca-planning/alerts/api-contract.md exactly. That doc — not this
-// file — is the source of truth; if the two disagree, fetch <base>/api/openapi.json
-// and trust that over both.
+// Mirrors the gaca-api wire format. The server, not this file, is the source of truth:
+// if the two disagree, fetch <base>/api/openapi.json and trust that.
 
 @Serializable
 data class SuggestedActionDto(
@@ -291,7 +290,7 @@ data class PushTokenUnregisterRequest(
 )
 
 
-/** One row in a briefing section — gaca-planning/briefing/api-contract.md. `time` is free
+/** One row in a briefing section. `time` is free
  * text the poster formatted; show it as-is. */
 @Serializable
 data class BriefingItemDto(
@@ -382,7 +381,7 @@ data class ProfileJobDto(
 )
 
 // ── Artifacts: HTML pages an agent writes, plus the data they keep ─────────────
-// See gaca-planning/artifacts/api-contract.md.
+// See the artifacts routes in <base>/api/openapi.json.
 
 @Serializable
 data class ArtifactDto(
