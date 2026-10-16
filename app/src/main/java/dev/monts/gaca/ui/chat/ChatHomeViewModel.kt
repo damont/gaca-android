@@ -11,6 +11,7 @@ import dev.monts.gaca.data.repo.SessionsRepository
 import dev.monts.gaca.util.PhotoPrep
 import dev.monts.gaca.util.PreparedPhoto
 import dev.monts.gaca.util.friendlyMessage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,8 @@ data class ChatHomeUiState(
     val selectedCrew: String? = null,
     val sessions: List<Session> = emptyList(),
     val isLoading: Boolean = true,
+    /** True only while a pull-to-refresh is in flight, so the pull indicator spins until the reload lands. */
+    val isRefreshing: Boolean = false,
     val error: String? = null,
     val text: String = "",
     val photos: List<PreparedPhoto> = emptyList(),
@@ -50,14 +53,22 @@ class ChatHomeViewModel(
         refresh()
     }
 
-    fun refresh() {
+    /** [isPullToRefresh] keeps the pull indicator spinning until the reload finishes (for at least a beat,
+     * so a fast reload is still visible); the automatic refreshes on open and resume stay silent. */
+    fun refresh(isPullToRefresh: Boolean = false) {
         viewModelScope.launch {
+            if (isPullToRefresh) _uiState.update { it.copy(isRefreshing = true) }
+            val startedAt = System.currentTimeMillis()
             try {
                 val crew = authRepository.getCrew().crew
                 val sessions = sessionsRepository.listSessions()
                 _uiState.update { it.copy(crew = crew, sessions = sessions, isLoading = false, error = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.friendlyMessage()) }
+            }
+            if (isPullToRefresh) {
+                delay((MIN_REFRESH_SPINNER_MS - (System.currentTimeMillis() - startedAt)).coerceAtLeast(0))
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }
@@ -107,3 +118,5 @@ class ChatHomeViewModel(
         refresh()
     }
 }
+
+private const val MIN_REFRESH_SPINNER_MS = 600L
