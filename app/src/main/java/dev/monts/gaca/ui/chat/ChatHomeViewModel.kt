@@ -8,6 +8,9 @@ import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Session
 import dev.monts.gaca.data.repo.SessionsRepository
+import dev.monts.gaca.data.repo.Skill
+import dev.monts.gaca.data.repo.SkillsRepository
+import dev.monts.gaca.ui.skills.expandSkillCommand
 import dev.monts.gaca.util.PhotoPrep
 import dev.monts.gaca.util.PreparedPhoto
 import dev.monts.gaca.util.friendlyMessage
@@ -31,6 +34,8 @@ data class ChatHomeUiState(
     val photos: List<PreparedPhoto> = emptyList(),
     val preparingPhotos: Boolean = false,
     val sending: Boolean = false,
+    /** The picked crew member's skills, most used first; empty until loaded (the composer then hides its skills button). */
+    val skills: List<Skill> = emptyList(),
     /** One-shot: set once the first message is sent, so the screen can push into the thread. */
     val createdSessionId: String? = null,
 ) {
@@ -44,6 +49,7 @@ data class ChatHomeUiState(
 class ChatHomeViewModel(
     private val sessionsRepository: SessionsRepository,
     private val authRepository: AuthRepository,
+    private val skillsRepository: SkillsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatHomeUiState())
@@ -63,6 +69,7 @@ class ChatHomeViewModel(
                 val crew = authRepository.getCrew().crew
                 val sessions = sessionsRepository.listSessions()
                 _uiState.update { it.copy(crew = crew, sessions = sessions, isLoading = false, error = null) }
+                _uiState.value.picked?.let { loadSkills(it.name) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.friendlyMessage()) }
             }
@@ -73,7 +80,28 @@ class ChatHomeViewModel(
         }
     }
 
-    fun selectCrew(name: String) = _uiState.update { it.copy(selectedCrew = name) }
+    fun selectCrew(name: String) {
+        _uiState.update { it.copy(selectedCrew = name) }
+        loadSkills(name)
+    }
+
+    private var skillsLoadedFor: String? = null
+
+    /** Best-effort: with no skills the composer simply has no skills button, so a failure is not an error. */
+    private fun loadSkills(crew: String) {
+        if (skillsLoadedFor == crew) return
+        skillsLoadedFor = crew
+        _uiState.update { it.copy(skills = emptyList()) }
+        viewModelScope.launch {
+            try {
+                val skills = skillsRepository.getSkills(crew)
+                _uiState.update { if (it.picked?.name == crew) it.copy(skills = skills) else it }
+            } catch (_: Exception) {
+                if (skillsLoadedFor == crew) skillsLoadedFor = null
+            }
+        }
+    }
+
     fun setText(text: String) = _uiState.update { it.copy(text = text) }
     fun removePhoto(id: String) = _uiState.update { s -> s.copy(photos = s.photos.filterNot { it.id == id }) }
 
@@ -97,7 +125,7 @@ class ChatHomeViewModel(
     fun send() {
         val before = _uiState.value
         val member = before.picked ?: return
-        val text = before.text.trim()
+        val text = expandSkillCommand(before.text.trim(), before.skills)
         if ((text.isEmpty() && before.photos.isEmpty()) || before.sending || before.preparingPhotos) return
         _uiState.update { it.copy(sending = true, error = null) }
         viewModelScope.launch {

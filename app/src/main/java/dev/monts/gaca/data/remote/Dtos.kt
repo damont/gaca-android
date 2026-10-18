@@ -270,12 +270,59 @@ data class MessageAcceptedDto(
 )
 
 /** GET /crew/{name}/skills — read-only, live from that crew member's own Hermes, never
- * cached (api-contract.md §8). `category` may be null for an uncategorized skill. */
+ * cached (api-contract.md §8). `category` may be null for an uncategorized skill; `use_count`
+ * is 0 when the engine keeps no count. */
 @Serializable
 data class SkillDto(
     val name: String,
     val description: String,
     val category: String? = null,
+    @SerialName("use_count") val useCount: Int = 0,
+    @SerialName("last_used_at") val lastUsedAt: String? = null,
+)
+
+/** One past run in an automation's row of coloured squares; `status` is ok / failed / running. */
+@Serializable
+data class RunMarkDto(
+    val id: String? = null,
+    val status: String,
+    val at: String? = null,
+)
+
+/** GET /automations — what a crew member does on a schedule. `status` is one of ok, failed,
+ * running, paused, done, never_run; `recent` is at most 10 runs, oldest first. */
+@Serializable
+data class AutomationDto(
+    val id: String,
+    val name: String,
+    val crew: String = "",
+    val schedule: String,
+    @SerialName("cron_expr") val cronExpr: String? = null,
+    val status: String,
+    @SerialName("last_status") val lastStatus: String? = null,
+    @SerialName("last_run") val lastRun: String? = null,
+    @SerialName("next_run") val nextRun: String? = null,
+    val kind: String = "agent",
+    val recent: List<RunMarkDto> = emptyList(),
+)
+
+@Serializable
+data class AutomationListDto(
+    val automations: List<AutomationDto> = emptyList(),
+    /** Crew members whose automations couldn't be read — say so rather than show an empty list as true. */
+    val unavailable: List<String> = emptyList(),
+)
+
+/** GET /crew/{name}/automations/{id}/runs, newest first. */
+@Serializable
+data class AutomationRunDto(
+    val id: String,
+    val status: String,
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("finished_at") val finishedAt: String? = null,
+    @SerialName("duration_seconds") val durationSeconds: Double? = null,
+    val summary: String? = null,
+    val error: String? = null,
 )
 
 @Serializable

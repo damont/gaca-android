@@ -49,7 +49,27 @@ interface GacaApi {
     suspend fun getCrewProfile(@Path("name") name: String): CrewProfileDto
 
     @GET("crew/{name}/skills")
-    suspend fun getSkills(@Path("name") name: String): List<SkillDto>
+    suspend fun getSkills(
+        @Path("name") name: String,
+        @Query("sort") sort: String? = null,
+    ): List<SkillDto>
+
+    @GET("automations")
+    suspend fun listAutomations(
+        @Query("crew") crew: String? = null,
+        @Query("include_done") includeDone: Boolean = false,
+    ): AutomationListDto
+
+    @GET("crew/{name}/automations/{id}/runs")
+    suspend fun getAutomationRuns(
+        @Path("name") name: String,
+        @Path("id") id: String,
+        @Query("limit") limit: Int = 20,
+    ): List<AutomationRunDto>
+
+    /** A request, not an instant start: the engine begins on its next tick (about a minute). */
+    @POST("crew/{name}/automations/{id}/run")
+    suspend fun runAutomation(@Path("name") name: String, @Path("id") id: String): AutomationDto
 
     @POST("alerts")
     suspend fun createAlert(@Body body: AlertCreateRequest): AlertDto
