@@ -70,7 +70,12 @@ private val dateFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
  * in them; this just lays out whatever comes back. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DailyScreen(viewModel: DailyViewModel, onOpenSettings: () -> Unit) {
+fun DailyScreen(
+    viewModel: DailyViewModel,
+    onOpenSettings: () -> Unit,
+    onOpenAutomation: (crew: String, id: String) -> Unit,
+    onOpenAutomations: () -> Unit,
+) {
     val state by viewModel.uiState.collectAsState()
 
     Column(
@@ -152,6 +157,9 @@ fun DailyScreen(viewModel: DailyViewModel, onOpenSettings: () -> Unit) {
                         item { SummaryCard(briefing.summary) }
                     }
                     items(briefing.sections, key = { it.key }) { SectionCard(it) }
+                }
+                if (state.isToday && state.automations.isNotEmpty()) {
+                    item(key = "scheduled") { ScheduledCard(state.automations, onOpenAutomation, onOpenAutomations) }
                 }
             }
         }

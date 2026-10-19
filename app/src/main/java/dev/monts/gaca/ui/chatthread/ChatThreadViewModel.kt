@@ -12,6 +12,9 @@ import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.SessionDetail
 import dev.monts.gaca.data.repo.SessionsRepository
+import dev.monts.gaca.data.repo.Skill
+import dev.monts.gaca.data.repo.SkillsRepository
+import dev.monts.gaca.ui.skills.expandSkillCommand
 import dev.monts.gaca.util.PhotoPrep
 import dev.monts.gaca.util.PreparedPhoto
 import dev.monts.gaca.util.friendlyMessage
@@ -37,6 +40,8 @@ data class ChatThreadUiState(
     val sending: Boolean = false,
     val pendingPhotos: List<PreparedPhoto> = emptyList(),
     val preparingPhotos: Boolean = false,
+    /** This crew member's skills, most used first; empty until loaded (the composer then hides its skills button). */
+    val skills: List<Skill> = emptyList(),
 
     /** A run for this session is in flight (from `running` on open, then from the event stream). */
     val running: Boolean = false,
@@ -79,6 +84,7 @@ class ChatThreadViewModel(
     private val sessionsRepository: SessionsRepository,
     private val authRepository: AuthRepository,
     private val alertsRepository: AlertsRepository,
+    private val skillsRepository: SkillsRepository,
     /** Pre-fills the input, e.g. arriving from a tapped skill — the user still has to send it. */
     initialMessageText: String? = null,
 ) : ViewModel() {
@@ -102,6 +108,17 @@ class ChatThreadViewModel(
             _uiState.update { it.copy(isLoading = false) }
             if (detail != null) openStream(detail)
             loadCrewAndAlert(detail)
+            detail?.session?.crew?.let { loadSkills(it) }
+        }
+    }
+
+    /** Best-effort: with no skills the composer simply has no skills button. */
+    private fun loadSkills(crew: String) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(skills = skillsRepository.getSkills(crew)) }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -176,7 +193,7 @@ class ChatThreadViewModel(
 
     fun send() {
         val before = _uiState.value
-        val text = before.messageText.trim()
+        val text = expandSkillCommand(before.messageText.trim(), before.skills)
         val photos = before.pendingPhotos
         if ((text.isEmpty() && photos.isEmpty()) || before.sending || before.preparingPhotos) return
 

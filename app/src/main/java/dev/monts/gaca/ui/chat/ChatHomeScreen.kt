@@ -117,6 +117,7 @@ fun ChatHomeScreen(
             onTakePhoto = takePhoto,
             onRemovePhoto = viewModel::removePhoto,
             onSend = viewModel::send,
+            skills = state.skills,
         )
     }
 }

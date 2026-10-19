@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -51,6 +52,10 @@ import dev.monts.gaca.ui.artifact.ArtifactsScreen
 import dev.monts.gaca.ui.artifact.ArtifactsViewModel
 import dev.monts.gaca.ui.common.ArtifactLinkEnv
 import dev.monts.gaca.ui.common.LocalArtifactLinks
+import dev.monts.gaca.ui.automations.AutomationDetailScreen
+import dev.monts.gaca.ui.automations.AutomationDetailViewModel
+import dev.monts.gaca.ui.automations.AutomationsScreen
+import dev.monts.gaca.ui.automations.AutomationsViewModel
 import dev.monts.gaca.ui.chat.ChatHomeScreen
 import dev.monts.gaca.ui.chat.ChatHomeViewModel
 import dev.monts.gaca.ui.chat.ChatListScreen
@@ -69,8 +74,6 @@ import dev.monts.gaca.ui.newdelegation.NewDelegationScreen
 import dev.monts.gaca.ui.newdelegation.NewDelegationViewModel
 import dev.monts.gaca.ui.settings.SettingsScreen
 import dev.monts.gaca.ui.settings.SettingsViewModel
-import dev.monts.gaca.ui.skills.SkillsScreen
-import dev.monts.gaca.ui.skills.SkillsViewModel
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
@@ -82,7 +85,8 @@ private const val ROUTE_DAILY = "daily"
 private const val ROUTE_INBOX = "inbox"
 private const val ROUTE_CHAT = "chat"
 private const val ROUTE_CHAT_HISTORY = "chat-history"
-private const val ROUTE_SKILLS = "skills"
+private const val ROUTE_AUTOMATIONS = "automations"
+private const val ROUTE_AUTOMATION = "automation/{crew}/{id}"
 private const val ROUTE_ARTIFACTS = "artifacts"
 private const val ROUTE_ARTIFACT = "artifact/{artifactId}"
 private const val ROUTE_SETTINGS = "settings"
@@ -100,7 +104,7 @@ private val bottomNavTabs = listOf(
     BottomNavTab(ROUTE_DAILY, "Today", Icons.Filled.WbSunny),
     BottomNavTab(ROUTE_INBOX, "Alerts", Icons.Filled.Notifications),
     BottomNavTab(ROUTE_ARTIFACTS, "Artifacts", Icons.Filled.Dashboard),
-    BottomNavTab(ROUTE_SKILLS, "Skills", Icons.Filled.AutoAwesome),
+    BottomNavTab(ROUTE_AUTOMATIONS, "Automations", Icons.Filled.Schedule),
 )
 
 @Composable
@@ -209,10 +213,21 @@ fun GacaNavHost(
         }
         composable(ROUTE_DAILY) {
             val vm = viewModel<DailyViewModel>(
-                factory = viewModelFactory { initializer { DailyViewModel(container.briefingRepository) } },
+                factory = viewModelFactory { initializer { DailyViewModel(container.briefingRepository, container.automationsRepository) } },
             )
             TabbedScreen(navController, currentRoute) {
-                DailyScreen(viewModel = vm, onOpenSettings = { navController.navigate(ROUTE_SETTINGS) })
+                DailyScreen(
+                    viewModel = vm,
+                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                    onOpenAutomation = { crew, id -> navController.navigate("automation/${android.net.Uri.encode(crew)}/${android.net.Uri.encode(id)}") },
+                    onOpenAutomations = {
+                        navController.navigate(ROUTE_AUTOMATIONS) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         }
         composable(ROUTE_INBOX) {
@@ -233,7 +248,7 @@ fun GacaNavHost(
         composable(ROUTE_CHAT) {
             val vm = viewModel<ChatHomeViewModel>(
                 factory = viewModelFactory {
-                    initializer { ChatHomeViewModel(container.sessionsRepository, container.authRepository) }
+                    initializer { ChatHomeViewModel(container.sessionsRepository, container.authRepository, container.skillsRepository) }
                 },
             )
             TabbedScreen(navController, currentRoute) {
@@ -289,21 +304,40 @@ fun GacaNavHost(
                 },
             )
         }
-        composable(ROUTE_SKILLS) {
-            val vm = viewModel<SkillsViewModel>(
-                factory = viewModelFactory {
-                    initializer { SkillsViewModel(container.authRepository, container.skillsRepository, container.sessionsRepository) }
-                },
+        composable(ROUTE_AUTOMATIONS) {
+            val vm = viewModel<AutomationsViewModel>(
+                factory = viewModelFactory { initializer { AutomationsViewModel(container.automationsRepository) } },
             )
+            LaunchedEffect(Unit) { vm.refresh() } // jobs run on their own; look again each visit
             TabbedScreen(navController, currentRoute) {
-                SkillsScreen(
+                AutomationsScreen(
                     viewModel = vm,
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                    onOpenThread = { sessionId, prefill ->
-                        navController.navigate("chat-thread/$sessionId?prefill=${android.net.Uri.encode(prefill)}")
-                    },
+                    onOpenAutomation = { crew, id -> navController.navigate("automation/${android.net.Uri.encode(crew)}/${android.net.Uri.encode(id)}") },
                 )
             }
+        }
+        composable(
+            ROUTE_AUTOMATION,
+            arguments = listOf(
+                navArgument("crew") { type = NavType.StringType },
+                navArgument("id") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val crew = backStackEntry.arguments?.getString("crew").orEmpty()
+            val id = backStackEntry.arguments?.getString("id").orEmpty()
+            val vm = viewModel<AutomationDetailViewModel>(
+                factory = viewModelFactory {
+                    initializer { AutomationDetailViewModel(crew, id, container.automationsRepository, container.sessionsRepository) }
+                },
+            )
+            AutomationDetailScreen(
+                viewModel = vm,
+                onBack = { navController.popBackStack() },
+                onOpenThread = { sessionId, prefill ->
+                    navController.navigate("chat-thread/$sessionId?prefill=${android.net.Uri.encode(prefill)}")
+                },
+            )
         }
         composable(
             ROUTE_CHAT_THREAD,
@@ -326,6 +360,7 @@ fun GacaNavHost(
                             container.sessionsRepository,
                             container.authRepository,
                             container.alertsRepository,
+                            container.skillsRepository,
                             initialMessageText = prefill,
                         )
                     }
@@ -439,7 +474,7 @@ private fun GacaBottomNavBar(navController: NavHostController, currentRoute: Str
                     }
                 },
                 icon = { Icon(tab.icon, contentDescription = tab.label) },
-                label = { Text(tab.label) },
+                label = { Text(tab.label, fontSize = 11.sp, maxLines = 1) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = HeaderAccent,
                     selectedTextColor = HeaderAccent,

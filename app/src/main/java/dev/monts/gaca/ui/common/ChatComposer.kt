@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -46,11 +47,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.monts.gaca.data.repo.Skill
+import dev.monts.gaca.ui.skills.SkillsSheet
+import dev.monts.gaca.ui.skills.SlashSkillList
+import dev.monts.gaca.ui.skills.slashQuery
+import dev.monts.gaca.ui.skills.withSkillCommand
 import dev.monts.gaca.ui.theme.BorderColor
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SeverityUrgentDot
+import dev.monts.gaca.ui.theme.SuggestBackground
 import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
@@ -72,7 +79,9 @@ fun ComposerError(text: String?) {
 /**
  * The floating white capsule shared by the Chat home and the thread: `+` for photos, taken or picked (up to
  * [PhotoPrep.MAX_PHOTOS], shown as thumbnails with a remove badge), a growing text field, and a
- * round send button in the crew's solid color when sendable.
+ * round send button in the crew's solid color when sendable. When the crew member has [skills], a sparkle
+ * button next to the `+` opens them (most used first), and typing `/` lists them inline; picking one puts
+ * `/skill-name ` at the start of the message.
  */
 @Composable
 fun ChatComposer(
@@ -88,10 +97,29 @@ fun ChatComposer(
     onRemovePhoto: (String) -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
+    skills: List<Skill> = emptyList(),
 ) {
     val canSend = (text.isNotBlank() || photos.isNotEmpty()) && !sending && !preparingPhotos
+    var skillsOpen by remember { mutableStateOf(false) }
+    val slash = slashQuery(text)
+    if (skillsOpen) {
+        SkillsSheet(
+            skills = skills,
+            onPick = { skillsOpen = false; onTextChange(withSkillCommand(text, it)) },
+            onDismiss = { skillsOpen = false },
+        )
+    }
+    androidx.compose.foundation.layout.Column(modifier.fillMaxWidth()) {
+    if (slash != null && skills.isNotEmpty()) {
+        SlashSkillList(
+            skills = skills,
+            query = slash,
+            onPick = { onTextChange(withSkillCommand(text, it)) },
+            onSeeAll = { skillsOpen = true },
+        )
+    }
     Surface(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         shape = RoundedCornerShape(26.dp),
         color = Color.White,
         shadowElevation = 6.dp,
@@ -123,6 +151,19 @@ fun ChatComposer(
                         AttachOption(Icons.Outlined.Image, "Choose from library") { menuOpen = false; onPickPhoto() }
                     }
                 }
+                if (skills.isNotEmpty()) {
+                    Box(
+                        Modifier
+                            .padding(bottom = 4.dp)
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(SuggestBackground)
+                            .clickable(enabled = !sending) { skillsOpen = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = "Skills", tint = HeaderAccent, modifier = Modifier.size(20.dp))
+                    }
+                }
                 Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
                     if (text.isEmpty()) Text(placeholder, style = FIELD_STYLE, color = TextMeta, maxLines = 1)
                     BasicTextField(
@@ -151,6 +192,7 @@ fun ChatComposer(
                 }
             }
         }
+    }
     }
 }
 

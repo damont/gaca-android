@@ -45,3 +45,11 @@ fun crewInk(hex: String): Color = androidx.compose.ui.graphics.lerp(crewColor(he
 
 /** The crew color mixed 12% toward black — buttons that carry light text. */
 fun crewSolid(hex: String): Color = androidx.compose.ui.graphics.lerp(crewColor(hex), Color.Black, 0.12f)
+
+/** A run or job that worked: the dot, its pale wash, and text that sits on that wash. */
+val SuccessDot = Color(0xFF4F8A63)
+val SuccessBg = Color(0xFFDDEBE0)
+val SuccessInk = Color(0xFF2F5C3F)
+
+/** Text that sits on [SeverityUrgentBg] (the plain urgent dot is too light for small text there). */
+val SeverityUrgentInk = Color(0xFF8A3220)
