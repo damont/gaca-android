@@ -28,16 +28,22 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +51,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.HeartbeatChange
+import dev.monts.gaca.data.repo.MAX_ALERTS_PER_DAY_LIMIT
+import dev.monts.gaca.data.repo.alertsPerDayLabel
+import dev.monts.gaca.data.repo.gapChoices
+import dev.monts.gaca.data.repo.gapLabel
+import dev.monts.gaca.data.repo.hourLabel
+import dev.monts.gaca.util.dayAndTime
+import java.time.Instant
+import java.time.ZoneId
 import dev.monts.gaca.ui.theme.BorderColor
 import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
@@ -193,6 +208,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
         }
 
         Spacer(Modifier.height(32.dp))
+        HeartbeatSection(state, viewModel)
+
+        Spacer(Modifier.height(32.dp))
         Box(
             Modifier
                 .fillMaxWidth()
@@ -210,6 +228,158 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
 
     if (state.showAddCrewSheet) {
         AddCrewMemberSheet(state, viewModel)
+    }
+}
+
+/** The agent's periodic check-in. The user owns these limits: the agent can read them but never change
+ * them. Every control saves as soon as it changes; if the server refuses (its reason is shown) the
+ * control goes back to what it was. Quiet hours and the pause use this phone's time zone, which is
+ * sent with each save. */
+@Composable
+private fun HeartbeatSection(state: SettingsUiState, viewModel: SettingsViewModel) {
+    val settings = state.heartbeat
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("HEARTBEAT", style = MaterialTheme.typography.labelMedium, color = TextMeta, modifier = Modifier.weight(1f))
+        if (state.heartbeatLoading) {
+            CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "How your agent checks in on its own: it looks around every half hour and tells you only what is worth it. " +
+            "You set the limits here; it can read them but never change them.",
+        style = MaterialTheme.typography.bodySmall,
+        color = TextMeta,
+    )
+
+    val error = state.heartbeatError
+    if (error != null) {
+        Spacer(Modifier.height(8.dp))
+        Text(error, style = MaterialTheme.typography.bodySmall, color = SeverityUrgentDot)
+        if (settings == null) {
+            Text(
+                "Try again",
+                style = MaterialTheme.typography.labelSmall,
+                color = HeaderAccent,
+                modifier = Modifier.padding(top = 4.dp).clickable(onClick = viewModel::loadHeartbeat),
+            )
+        }
+    }
+    if (settings == null) return
+
+    Spacer(Modifier.height(16.dp))
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, BorderColor, RoundedCornerShape(12.dp)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Check in for me", style = MaterialTheme.typography.labelLarge, color = TextPrimary, modifier = Modifier.weight(1f))
+            Switch(checked = settings.enabled, onCheckedChange = viewModel::setHeartbeatEnabled)
+        }
+        if (!settings.enabled) return@Column
+
+        // Pause
+        val now = remember(settings.pausedUntil) { Instant.now() }
+        val pausedUntil = settings.pausedUntil
+        if (settings.isPaused(now) && pausedUntil != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Paused", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                    Text("Until ${dayAndTime(pausedUntil)}", style = MaterialTheme.typography.bodySmall, color = TextMeta)
+                }
+                ChoiceChip("Resume", onClick = viewModel::resumeHeartbeat)
+            }
+        } else {
+            Column {
+                Text("Pause for…", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceChip("1 hour") { viewModel.pauseHeartbeatForHours(1) }
+                    ChoiceChip("Until morning") { viewModel.pauseHeartbeatUntilMorning() }
+                }
+            }
+        }
+
+        // Quiet hours
+        Column {
+            Text("Quiet hours", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("From", style = MaterialTheme.typography.bodySmall, color = TextMeta)
+                HourPicker(settings.quietStartHour) { viewModel.changeHeartbeat(HeartbeatChange(quietStartHour = it)) }
+                Text("to", style = MaterialTheme.typography.bodySmall, color = TextMeta)
+                HourPicker(settings.quietEndHour) { viewModel.changeHeartbeat(HeartbeatChange(quietEndHour = it)) }
+            }
+            Text(
+                "Nothing runs then. Uses this phone's time zone (${ZoneId.systemDefault().id}).",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMeta,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+
+        // Alerts per day
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Alerts a day", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                Text(alertsPerDayLabel(settings.maxAlertsPerDay), style = MaterialTheme.typography.bodySmall, color = TextMeta)
+            }
+            StepButton("−", enabled = settings.maxAlertsPerDay > 0) {
+                viewModel.changeHeartbeat(HeartbeatChange(maxAlertsPerDay = settings.maxAlertsPerDay - 1))
+            }
+            Spacer(Modifier.width(8.dp))
+            StepButton("+", enabled = settings.maxAlertsPerDay < MAX_ALERTS_PER_DAY_LIMIT) {
+                viewModel.changeHeartbeat(HeartbeatChange(maxAlertsPerDay = settings.maxAlertsPerDay + 1))
+            }
+        }
+
+        // Gap between alerts
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Time between alerts", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                Text("At least this long apart", style = MaterialTheme.typography.bodySmall, color = TextMeta)
+            }
+            PickerChip(
+                label = gapLabel(settings.minMinutesBetweenAlerts),
+                options = gapChoices(settings.minMinutesBetweenAlerts).map { it to gapLabel(it) },
+            ) { viewModel.changeHeartbeat(HeartbeatChange(minMinutesBetweenAlerts = it)) }
+        }
+    }
+}
+
+@Composable
+private fun HourPicker(hour: Int, onPick: (Int) -> Unit) =
+    PickerChip(label = hourLabel(hour), options = (0..23).map { it to hourLabel(it) }, onPick = onPick)
+
+/** A chip that opens a menu of choices and reports the one picked. */
+@Composable
+private fun PickerChip(label: String, options: List<Pair<Int, String>>, onPick: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        ChoiceChip("$label ▾") { open = true }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (value, text) ->
+                DropdownMenuItem(text = { Text(text) }, onClick = { open = false; onPick(value) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChoiceChip(text: String, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(ChipBackground).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Text(text, style = MaterialTheme.typography.labelMedium, color = HeaderAccent)
+    }
+}
+
+@Composable
+private fun StepButton(symbol: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).background(if (enabled) ChipBackground else PageBackground)
+            .border(1.dp, BorderColor, CircleShape).clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(symbol, style = MaterialTheme.typography.titleMedium, color = if (enabled) HeaderAccent else TextMeta)
     }
 }
 

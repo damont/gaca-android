@@ -15,6 +15,7 @@ import dev.monts.gaca.data.repo.ImageRepository
 import dev.monts.gaca.data.repo.PushRepository
 import dev.monts.gaca.data.repo.SessionsRepository
 import dev.monts.gaca.data.repo.AutomationsRepository
+import dev.monts.gaca.data.repo.HeartbeatRepository
 import dev.monts.gaca.data.repo.SkillsRepository
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
@@ -75,6 +76,7 @@ class AppContainer(context: Context) {
     val sessionsRepository = SessionsRepository(api, sseClient, imageRepository)
     val skillsRepository = SkillsRepository(api)
     val automationsRepository = AutomationsRepository(api)
+    val heartbeatRepository = HeartbeatRepository(api)
     val briefingRepository = BriefingRepository(api)
     val crewProfileRepository = CrewProfileRepository(api)
     val artifactRepository = ArtifactRepository(api, okHttpClient, baseUrl)
