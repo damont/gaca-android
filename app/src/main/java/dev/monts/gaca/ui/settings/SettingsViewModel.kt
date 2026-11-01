@@ -5,6 +5,11 @@ import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.local.SettingsStore
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.AuthRepository
+import dev.monts.gaca.data.repo.HeartbeatChange
+import dev.monts.gaca.data.repo.HeartbeatRepository
+import dev.monts.gaca.data.repo.HeartbeatSettings
+import dev.monts.gaca.data.repo.nextMorning
+import dev.monts.gaca.data.repo.pauseForHours
 import dev.monts.gaca.data.repo.PushRepository
 import dev.monts.gaca.util.friendlyMessage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
 
 data class SettingsUiState(
     val baseUrlInput: String = "",
@@ -42,12 +49,20 @@ data class SettingsUiState(
     val newCrewName: String = "",
     val newCrewColor: String? = null,
     val newCrewSaving: Boolean = false,
+
+    // "Heartbeat" — the agent's periodic check-in: quiet hours, daily limits, on/off, pause.
+    // `heartbeat` is null until the first load succeeds; each change shows at once and is
+    // undone (with the server's reason) if the server refuses it.
+    val heartbeatLoading: Boolean = true,
+    val heartbeat: HeartbeatSettings? = null,
+    val heartbeatError: String? = null,
 )
 
 class SettingsViewModel(
     private val settingsStore: SettingsStore,
     private val authRepository: AuthRepository,
     private val pushRepository: PushRepository,
+    private val heartbeatRepository: HeartbeatRepository,
     /** Rebuilds the app around whatever server is saved now (GacaApp.reconfigure). */
     private val onServerChanged: () -> Unit,
 ) : ViewModel() {
@@ -61,7 +76,50 @@ class SettingsViewModel(
         }
         loadAgentStatus()
         loadCrew()
+        loadHeartbeat()
     }
+
+    // ── heartbeat ─────────────────────────────────────────────────────
+
+    fun loadHeartbeat() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(heartbeatLoading = true, heartbeatError = null) }
+            try {
+                val settings = heartbeatRepository.get()
+                _uiState.update { it.copy(heartbeatLoading = false, heartbeat = settings) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(heartbeatLoading = false, heartbeatError = e.friendlyMessage()) }
+            }
+        }
+    }
+
+    /** Save one change. The control moves immediately; if the server says no (a 422 with its reason,
+     * or no connection) it goes back to what it was and the reason is shown. */
+    fun changeHeartbeat(change: HeartbeatChange) {
+        val before = _uiState.value.heartbeat ?: return
+        _uiState.update { it.copy(heartbeat = before.applying(change), heartbeatError = null) }
+        viewModelScope.launch {
+            try {
+                val saved = heartbeatRepository.update(change, ZoneId.systemDefault())
+                _uiState.update { it.copy(heartbeat = saved) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(heartbeat = before, heartbeatError = e.friendlyMessage()) }
+            }
+        }
+    }
+
+    fun setHeartbeatEnabled(enabled: Boolean) = changeHeartbeat(HeartbeatChange(enabled = enabled))
+
+    fun pauseHeartbeatForHours(hours: Long, now: Instant = Instant.now()) =
+        changeHeartbeat(HeartbeatChange(pausedUntil = pauseForHours(now, hours)))
+
+    /** Quiet until the quiet hours' own end, so "until morning" matches the schedule on screen. */
+    fun pauseHeartbeatUntilMorning(now: Instant = Instant.now()) {
+        val hour = _uiState.value.heartbeat?.quietEndHour ?: return
+        changeHeartbeat(HeartbeatChange(pausedUntil = nextMorning(now, ZoneId.systemDefault(), hour)))
+    }
+
+    fun resumeHeartbeat() = changeHeartbeat(HeartbeatChange(clearPause = true))
 
     fun loadAgentStatus() {
         viewModelScope.launch {

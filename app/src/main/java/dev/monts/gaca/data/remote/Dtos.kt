@@ -459,3 +459,18 @@ data class ArtifactPatchRequest(
     val archived: Boolean? = null,
     val title: String? = null,
 )
+
+/** GET/PUT /heartbeat/settings — how the agent's periodic check-in behaves. Hours are 0-23 in
+ * the phone's zone (`timezone`); quiet hours run from `quiet_start_hour` to `quiet_end_hour`
+ * and may cross midnight. `paused_until` is null when not paused. */
+@Serializable
+data class HeartbeatSettingsDto(
+    val enabled: Boolean = true,
+    @SerialName("paused_until") val pausedUntil: String? = null,
+    val timezone: String? = null,
+    @SerialName("quiet_start_hour") val quietStartHour: Int = 22,
+    @SerialName("quiet_end_hour") val quietEndHour: Int = 7,
+    @SerialName("max_alerts_per_day") val maxAlertsPerDay: Int = 3,
+    @SerialName("min_minutes_between_alerts") val minMinutesBetweenAlerts: Int = 60,
+    @SerialName("max_runs_per_day") val maxRunsPerDay: Int = 30,
+)

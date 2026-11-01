@@ -1,5 +1,6 @@
 package dev.monts.gaca.data.remote
 
+import kotlinx.serialization.json.JsonObject
 import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -41,6 +42,15 @@ interface GacaApi {
 
     @POST("crew/{name}/default")
     suspend fun setDefaultCrewMember(@Path("name") name: String): CrewDto
+
+    @GET("heartbeat/settings")
+    suspend fun getHeartbeatSettings(): HeartbeatSettingsDto
+
+    /** Partial: send only what changes. The body is a JsonObject (not a data class) because
+     * clearing a pause means sending an explicit `"paused_until": null`, which the app's Json
+     * (explicitNulls = false) would drop from a class property. */
+    @PUT("heartbeat/settings")
+    suspend fun updateHeartbeatSettings(@Body body: JsonObject): HeartbeatSettingsDto
 
     @GET("briefings")
     suspend fun getBriefing(@Query("date") date: String): BriefingDto

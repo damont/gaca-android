@@ -428,7 +428,7 @@ fun GacaNavHost(
             val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
             val vm = viewModel<SettingsViewModel>(
                 factory = viewModelFactory {
-                    initializer { SettingsViewModel(container.settingsStore, container.authRepository, container.pushRepository) {
+                    initializer { SettingsViewModel(container.settingsStore, container.authRepository, container.pushRepository, container.heartbeatRepository) {
                         (appContext as dev.monts.gaca.GacaApp).reconfigure()
                     } }
                 },
