@@ -34,6 +34,8 @@ data class SettingsUiState(
     val crewLoading: Boolean = true,
     val crewError: String? = null,
     val crew: List<CrewMember> = emptyList(),
+    /** Removing a member deletes its Hermes profile (gaca-api can reach the box), not just GACA's entry. */
+    val crewCanCreate: Boolean = false,
 
     // At most one row's edit form is open at a time.
     val editingCrewName: String? = null,
@@ -150,7 +152,7 @@ class SettingsViewModel(
             _uiState.update { it.copy(crewLoading = true, crewError = null) }
             try {
                 val config = authRepository.getCrew()
-                _uiState.update { it.copy(crewLoading = false, crew = config.crew) }
+                _uiState.update { it.copy(crewLoading = false, crew = config.crew, crewCanCreate = config.canCreate) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(crewLoading = false, crewError = e.friendlyMessage()) }
             }
@@ -183,7 +185,7 @@ class SettingsViewModel(
             _uiState.update { it.copy(editSaving = true, crewError = null) }
             try {
                 val config = authRepository.updateCrewMember(name, port, apiKey)
-                _uiState.update { it.copy(editSaving = false, crew = config.crew, editingCrewName = null) }
+                _uiState.update { it.copy(editSaving = false, crew = config.crew, crewCanCreate = config.canCreate, editingCrewName = null) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(editSaving = false, crewError = e.friendlyMessage()) }
             }
@@ -197,7 +199,7 @@ class SettingsViewModel(
             _uiState.update { it.copy(crewError = null) }
             try {
                 val config = authRepository.removeCrewMember(name)
-                _uiState.update { it.copy(crew = config.crew) }
+                _uiState.update { it.copy(crew = config.crew, crewCanCreate = config.canCreate) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(crewError = e.friendlyMessage()) }
             }
@@ -209,7 +211,7 @@ class SettingsViewModel(
             _uiState.update { it.copy(crewError = null) }
             try {
                 val config = authRepository.setDefaultCrewMember(name)
-                _uiState.update { it.copy(crew = config.crew) }
+                _uiState.update { it.copy(crew = config.crew, crewCanCreate = config.canCreate) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(crewError = e.friendlyMessage()) }
             }
@@ -243,7 +245,7 @@ class SettingsViewModel(
             try {
                 // No port/API key — gaca-api provisions the profile on the box itself.
                 val config = authRepository.addCrewMember(name, color = _uiState.value.newCrewColor)
-                _uiState.update { it.copy(newCrewSaving = false, crew = config.crew, showAddCrewSheet = false) }
+                _uiState.update { it.copy(newCrewSaving = false, crew = config.crew, crewCanCreate = config.canCreate, showAddCrewSheet = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(newCrewSaving = false, crewError = e.friendlyMessage()) }
             }

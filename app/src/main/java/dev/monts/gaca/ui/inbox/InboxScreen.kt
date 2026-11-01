@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.Alert
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.crewLabel
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.R
 import dev.monts.gaca.ui.common.BrandMark
@@ -386,6 +387,18 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
                     ) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(posterColor))
                         Text(poster.name, style = MaterialTheme.typography.labelSmall, color = posterColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
+                if (poster == null && alert.crewRemoved && alert.crew != null) {
+                    // The member is gone: a grey chip keeps the history attributable without implying it is current.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.5f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text(crewLabel(alert.crew, true), style = MaterialTheme.typography.labelSmall, color = TextMeta, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                 }
                 // A `completed` alert sits in the same tab as `new` ones —

@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.monts.gaca.R
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.crewLabel
 import dev.monts.gaca.ui.common.BrandMark
 import dev.monts.gaca.data.repo.Session
 import dev.monts.gaca.ui.common.ChatComposer
@@ -221,7 +222,7 @@ internal fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: ()
         Modifier.fillMaxWidth().clickable(onClick = onTap).padding(horizontal = 22.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CrewAvatar(crewMember?.name ?: session.crew, crewMember?.color, 40.dp)
+        CrewAvatar(crewMember?.name ?: session.crew, crewMember?.color, 40.dp, muted = session.crewRemoved)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -240,7 +241,11 @@ internal fun ChatSessionRow(session: Session, crewMember: CrewMember?, onTap: ()
             }
             Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 (crewMember?.name ?: session.crew)?.let { name ->
-                    Text(name, style = MaterialTheme.typography.labelMedium, color = crewMember?.let { crewInk(it.color) } ?: TextSecondary)
+                    Text(
+                        crewLabel(name, session.crewRemoved),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (session.crewRemoved) TextMeta else crewMember?.let { crewInk(it.color) } ?: TextSecondary,
+                    )
                 }
                 if (session.alertId != null) {
                     Text("·", style = MaterialTheme.typography.labelMedium, color = TextMeta)

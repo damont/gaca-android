@@ -22,10 +22,12 @@ data class Session(
     val preview: String?,
     /** Latest message's time (else creation time) — the time to show and group a chat by. */
     val lastActivityAt: String = createdAt,
+    /** The crew member was removed: this chat is read-only history. */
+    val crewRemoved: Boolean = false,
 )
 
 fun SessionDto.toDomain(): Session =
-    Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt)
+    Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt, crewRemoved)
 
 /** [Session] plus its transcript, oldest first — GET /sessions/{id}. */
 data class SessionDetail(
@@ -39,7 +41,7 @@ data class SessionDetail(
 )
 
 fun SessionDetailDto.toDomain(): SessionDetail = SessionDetail(
-    session = Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt),
+    session = Session(id, createdAt, title, status, crew, alertId, summary, preview, lastActivityAt ?: createdAt, crewRemoved),
     messages = messages.map { it.toDomain() },
     running = running,
     runStartedAt = runStartedAt,

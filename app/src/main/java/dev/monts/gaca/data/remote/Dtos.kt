@@ -38,6 +38,8 @@ data class AlertDto(
     @SerialName("parent_alert_id") val parentAlertId: String? = null,
     /** An HTML page (artifact) published for this alert. */
     @SerialName("artifact_id") val artifactId: String? = null,
+    /** True when the crew member it names was removed; it is read-only history now. Absent on older servers. */
+    @SerialName("crew_removed") val crewRemoved: Boolean = false,
 )
 
 @Serializable
@@ -220,6 +222,8 @@ data class SessionDto(
     val preview: String? = null,
     /** Latest message's time, else creation time — what the list is sorted and labelled by. */
     @SerialName("last_activity_at") val lastActivityAt: String? = null,
+    /** True when [crew] was removed: the chat is read-only history. Absent on older servers. */
+    @SerialName("crew_removed") val crewRemoved: Boolean = false,
 )
 
 /** GET /sessions. */
@@ -247,6 +251,7 @@ data class SessionDetailDto(
     val summary: String? = null,
     val preview: String? = null,
     @SerialName("last_activity_at") val lastActivityAt: String? = null,
+    @SerialName("crew_removed") val crewRemoved: Boolean = false,
     val messages: List<MessageDto> = emptyList(),
     /** A run for this session is in flight right now. */
     val running: Boolean = false,

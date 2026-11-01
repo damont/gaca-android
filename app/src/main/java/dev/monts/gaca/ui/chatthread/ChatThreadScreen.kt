@@ -56,6 +56,7 @@ import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.push.ActiveChat
+import dev.monts.gaca.data.repo.crewLabel
 import dev.monts.gaca.ui.common.ChatComposer
 import dev.monts.gaca.ui.common.rememberTakePhoto
 import dev.monts.gaca.ui.common.ComposerError
@@ -118,7 +119,16 @@ fun ChatThreadScreen(
             ThreadBody(state, viewModel)
         }
         ComposerError(state.error.takeIf { state.sessionDetail != null })
-        ChatComposer(
+        if (state.sessionDetail?.session?.crewRemoved == true) {
+            // A removed crew member cannot answer: the chat stays readable, and says why it can't be continued.
+            Text(
+                "This crew member was removed. This chat is read-only.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextMeta,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 16.dp),
+            )
+        } else ChatComposer(
             text = state.messageText,
             photos = state.pendingPhotos,
             preparingPhotos = state.preparingPhotos,
@@ -159,8 +169,13 @@ private fun ThreadHeader(state: ChatThreadUiState, onBack: () -> Unit, onOpenCre
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                CrewAvatar(member?.name ?: session?.crew, member?.color, 22.dp)
-                Text(member?.name ?: session?.crew ?: "Chat", style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), color = TextPrimary)
+                val removed = session?.crewRemoved == true
+                CrewAvatar(member?.name ?: session?.crew, member?.color, 22.dp, muted = removed)
+                Text(
+                    (member?.name ?: session?.crew)?.let { crewLabel(it, removed) } ?: "Chat",
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                    color = if (removed) TextMeta else TextPrimary,
+                )
             }
             if (status != null) {
                 Text(status, style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp), color = TextMeta, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -241,7 +256,7 @@ private fun MessageList(state: ChatThreadUiState, messages: List<ConversationMes
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.divider?.let { DayDivider(it) }
                     if (row.message.role == "assistant") {
-                        CrewTurn(row.message, member, crewName)
+                        CrewTurn(row.message, member, crewName, removed = state.sessionDetail?.session?.crewRemoved == true)
                     } else {
                         UserBubble(row.message, viewModel::loadImage)
                     }
