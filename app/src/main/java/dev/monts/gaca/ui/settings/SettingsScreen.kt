@@ -36,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.removeCrewPrompt
 import dev.monts.gaca.data.repo.HeartbeatChange
 import dev.monts.gaca.data.repo.MAX_ALERTS_PER_DAY_LIMIT
 import dev.monts.gaca.data.repo.alertsPerDayLabel
@@ -499,6 +502,22 @@ private fun CrewAvatar(member: CrewMember) {
  * as the avatar — two reinforcing cues for "who is this." */
 @Composable
 private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: SettingsViewModel, onOpenCrew: (String) -> Unit) {
+    var confirmingRemove by remember { mutableStateOf(false) }
+    if (confirmingRemove) {
+        // Removing really deletes the profile on the Hermes box (when gaca-api can reach it), so ask first.
+        val prompt = removeCrewPrompt(member.name, state.crewCanCreate)
+        AlertDialog(
+            onDismissRequest = { confirmingRemove = false },
+            title = { Text(prompt.title) },
+            text = { Text(prompt.body) },
+            confirmButton = {
+                TextButton(onClick = { confirmingRemove = false; viewModel.removeCrewMember(member.name) }) {
+                    Text(prompt.confirm, color = SeverityUrgentDot)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmingRemove = false }) { Text("Cancel") } },
+        )
+    }
     Row(
         Modifier
             .fillMaxWidth()
@@ -592,7 +611,7 @@ private fun CrewRow(member: CrewMember, state: SettingsUiState, viewModel: Setti
                         "Remove",
                         style = MaterialTheme.typography.labelSmall,
                         color = SeverityUrgentDot,
-                        modifier = Modifier.clickable { viewModel.removeCrewMember(member.name) },
+                        modifier = Modifier.clickable { confirmingRemove = true },
                     )
                 }
             }

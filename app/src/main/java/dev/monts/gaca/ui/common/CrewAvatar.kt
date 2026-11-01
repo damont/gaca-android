@@ -16,12 +16,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
+import dev.monts.gaca.ui.theme.TextMeta
 import dev.monts.gaca.ui.theme.crewColor
 
-/** A crew member's round avatar: their color with the first two letters of their name. */
+/** A crew member's round avatar: their color with the first two letters of their name (grey when [muted], i.e. removed). */
 @Composable
-fun CrewAvatar(name: String?, colorHex: String?, size: Dp, modifier: Modifier = Modifier) {
-    val fill: Color = colorHex?.let { crewColor(it) } ?: HeaderAccent
+fun CrewAvatar(name: String?, colorHex: String?, size: Dp, modifier: Modifier = Modifier, muted: Boolean = false) {
+    // A removed crew member keeps no colour: grey says "history", not "someone you can talk to".
+    val fill: Color = if (muted) TextMeta else colorHex?.let { crewColor(it) } ?: HeaderAccent
     Box(
         modifier.size(size).clip(CircleShape).background(fill),
         contentAlignment = Alignment.Center,

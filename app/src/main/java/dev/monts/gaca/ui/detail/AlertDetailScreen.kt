@@ -52,6 +52,7 @@ import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SuggestBackground
+import dev.monts.gaca.data.repo.crewLabel
 import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 import dev.monts.gaca.ui.theme.TextMeta
@@ -161,7 +162,7 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Box(Modifier.size(6.dp).clip(CircleShape).background(chipColor))
-                    Text(crewName, style = MaterialTheme.typography.labelSmall, color = chipColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    Text(crewLabel(crewName, alert.crewRemoved), style = MaterialTheme.typography.labelSmall, color = chipColor, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 }
             }
         }

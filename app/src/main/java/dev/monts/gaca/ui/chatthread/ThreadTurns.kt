@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.crewLabel
 import dev.monts.gaca.data.repo.MessageActivity
 import dev.monts.gaca.data.repo.MessageArtifact
 import dev.monts.gaca.ui.common.CrewAvatar
@@ -106,22 +107,22 @@ private fun BubblePhoto(bitmap: Bitmap) {
 
 /** The small header over a crew member's turn: a 22dp avatar and their name in the crew's ink color. */
 @Composable
-private fun TurnHeader(member: CrewMember?, fallbackName: String?) {
+private fun TurnHeader(member: CrewMember?, fallbackName: String?, removed: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CrewAvatar(member?.name ?: fallbackName, member?.color, 22.dp)
+        CrewAvatar(member?.name ?: fallbackName, member?.color, 22.dp, muted = removed)
         Text(
-            member?.name ?: fallbackName ?: "Crew",
+            (member?.name ?: fallbackName)?.let { crewLabel(it, removed) } ?: "Crew",
             style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
-            color = member?.let { crewInk(it.color) } ?: TextSecondary,
+            color = if (removed) TextMeta else member?.let { crewInk(it.color) } ?: TextSecondary,
         )
     }
 }
 
 /** A crew member's reply: not a bubble, a full-width turn of activity chip, Markdown and page cards. */
 @Composable
-fun CrewTurn(message: ConversationMessage, member: CrewMember?, fallbackName: String?) {
+fun CrewTurn(message: ConversationMessage, member: CrewMember?, fallbackName: String?, removed: Boolean = false) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TurnHeader(member, fallbackName)
+        TurnHeader(member, fallbackName, removed)
         message.activity?.let { ActivityChip(it) }
         if (message.displayContent.isNotBlank()) {
             SelectionContainer { MarkdownText(message.displayContent) }
