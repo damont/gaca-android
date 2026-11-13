@@ -91,7 +91,7 @@ private val CREW_COLOR_PALETTE = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew: (String) -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, cloudLink: CloudLinkViewModel, onBack: () -> Unit, onOpenCrew: (String) -> Unit) {
     val state by viewModel.uiState.collectAsState()
 
     Column(
@@ -209,6 +209,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenCrew:
                 Text("Add crew member", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
             }
         }
+
+        Spacer(Modifier.height(32.dp))
+        CloudLinkSection(cloudLink)
 
         Spacer(Modifier.height(32.dp))
         HeartbeatSection(state, viewModel)

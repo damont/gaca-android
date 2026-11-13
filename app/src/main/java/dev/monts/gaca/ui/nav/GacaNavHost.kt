@@ -72,6 +72,7 @@ import dev.monts.gaca.ui.inbox.InboxScreen
 import dev.monts.gaca.ui.inbox.InboxViewModel
 import dev.monts.gaca.ui.newdelegation.NewDelegationScreen
 import dev.monts.gaca.ui.newdelegation.NewDelegationViewModel
+import dev.monts.gaca.ui.settings.CloudLinkViewModel
 import dev.monts.gaca.ui.settings.SettingsScreen
 import dev.monts.gaca.ui.settings.SettingsViewModel
 import dev.monts.gaca.ui.theme.ChipBackground
@@ -433,8 +434,12 @@ fun GacaNavHost(
                     } }
                 },
             )
+            val cloudLinkVm = viewModel<CloudLinkViewModel>(
+                factory = viewModelFactory { initializer { CloudLinkViewModel(container.cloudLinkRepository) } },
+            )
             SettingsScreen(
                 vm,
+                cloudLinkVm,
                 onBack = { navController.popBackStack() },
                 onOpenCrew = { name -> navController.navigate("crew/${android.net.Uri.encode(name)}") },
             )

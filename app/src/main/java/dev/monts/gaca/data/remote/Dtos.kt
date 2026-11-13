@@ -479,3 +479,49 @@ data class HeartbeatSettingsDto(
     @SerialName("min_minutes_between_alerts") val minMinutesBetweenAlerts: Int = 60,
     @SerialName("max_runs_per_day") val maxRunsPerDay: Int = 30,
 )
+
+// ── GACA Cloud link: this server's connection to the person's cloud account ────
+// The app only ever talks to its own server (<base>/cloud/...); the server holds the cloud token.
+
+/** GET /cloud/link. `state`: none | pending | linked | invalid (the cloud stopped accepting the link). */
+@Serializable
+data class CloudLinkStatusDto(
+    val linked: Boolean = false,
+    val state: String = "none",
+    val handle: String? = null,
+    @SerialName("account_id") val accountId: String? = null,
+    @SerialName("linked_at") val linkedAt: String? = null,
+    val scope: String? = null,
+)
+
+/** POST /cloud/link/start. `scope` has no default on purpose: the app's Json leaves defaults out, and we want it sent. */
+@Serializable
+data class CloudLinkStartRequest(val scope: String)
+
+@Serializable
+data class CloudLinkStartedDto(
+    @SerialName("user_code") val userCode: String,
+    @SerialName("verification_uri") val verificationUri: String,
+    @SerialName("expires_in") val expiresIn: Int,
+    val interval: Int,
+)
+
+/** POST /cloud/link/poll: pending | linked | expired | denied. */
+@Serializable
+data class CloudLinkPollDto(
+    val status: String,
+    val interval: Int? = null,
+    @SerialName("retry_in") val retryIn: Int? = null,
+    val handle: String? = null,
+    @SerialName("account_id") val accountId: String? = null,
+    val scope: String? = null,
+    @SerialName("linked_at") val linkedAt: String? = null,
+)
+
+/** DELETE /cloud/link. */
+@Serializable
+data class CloudUnlinkedDto(
+    val unlinked: Boolean = false,
+    @SerialName("cloud_revoked") val cloudRevoked: Boolean = false,
+    val message: String = "",
+)
