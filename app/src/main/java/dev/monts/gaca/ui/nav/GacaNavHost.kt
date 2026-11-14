@@ -73,6 +73,8 @@ import dev.monts.gaca.ui.inbox.InboxScreen
 import dev.monts.gaca.ui.inbox.InboxViewModel
 import dev.monts.gaca.ui.newdelegation.NewDelegationScreen
 import dev.monts.gaca.ui.newdelegation.NewDelegationViewModel
+import dev.monts.gaca.ui.join.JoinScreen
+import dev.monts.gaca.ui.join.JoinViewModel
 import dev.monts.gaca.ui.settings.CloudLinkViewModel
 import dev.monts.gaca.ui.settings.SettingsScreen
 import dev.monts.gaca.ui.settings.SettingsViewModel
@@ -92,6 +94,7 @@ private const val ROUTE_AUTOMATION = "automation/{crew}/{id}"
 private const val ROUTE_ARTIFACTS = "artifacts"
 private const val ROUTE_ARTIFACT = "artifact/{artifactId}"
 private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_JOIN = "join"
 private const val ROUTE_CREW_DETAIL = "crew/{name}"
 private const val ROUTE_DETAIL = "detail/{alertId}"
 private const val ROUTE_NEW_DELEGATION = "new-delegation"
@@ -120,6 +123,8 @@ fun GacaNavHost(
     onPendingArtifactConsumed: () -> Unit = {},
     pendingSetupLink: SetupLink? = null,
     onPendingSetupConsumed: () -> Unit = {},
+    pendingJoinLink: String? = null,
+    onPendingJoinConsumed: () -> Unit = {},
 ) {
     val authState by container.authRepository.state.collectAsState()
 
@@ -183,6 +188,17 @@ fun GacaNavHost(
         if (pendingArtifactId != null && authState.user != null) {
             navController.navigate("artifact/$pendingArtifactId")
             onPendingArtifactConsumed()
+        }
+    }
+
+    // A gaca://join/<token> link: open "Add a shared page" with it. The token stays out of the route (and so out of any
+    // navigation logging); it is handed over through this state and cleared as soon as the screen has taken it.
+    var joinLink by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingJoinLink, authState.user) {
+        if (pendingJoinLink != null && authState.user != null) {
+            joinLink = pendingJoinLink
+            navController.navigate(ROUTE_JOIN) { launchSingleTop = true }
+            onPendingJoinConsumed()
         }
     }
 
@@ -284,6 +300,7 @@ fun GacaNavHost(
                     viewModel = vm,
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                     onOpenArtifact = { id -> navController.navigate("artifact/$id") },
+                    onJoinWithLink = { navController.navigate(ROUTE_JOIN) },
                     shareFactory = { artifact ->
                         viewModelFactory {
                             initializer {
@@ -311,6 +328,20 @@ fun GacaNavHost(
                 onOpenChat = { sessionId, prefill ->
                     navController.navigate("chat-thread/$sessionId?prefill=${android.net.Uri.encode(prefill)}")
                 },
+            )
+        }
+        composable(ROUTE_JOIN) {
+            val vm = viewModel<JoinViewModel>(
+                factory = viewModelFactory { initializer { JoinViewModel(container.joinRepository) } },
+            )
+            LaunchedEffect(joinLink) {
+                joinLink?.let { vm.useLink(it); joinLink = null }
+            }
+            JoinScreen(
+                vm,
+                onBack = { navController.popBackStack() },
+                onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onOpenArtifact = { id -> navController.navigate("artifact/$id") { popUpTo(ROUTE_JOIN) { inclusive = true } } },
             )
         }
         composable(ROUTE_AUTOMATIONS) {

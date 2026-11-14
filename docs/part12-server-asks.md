@@ -4,6 +4,11 @@ Slice 3 (share sheet) notes: the app uses a 5-minute read timeout for `move-to-c
 `GET /artifacts/{id}` every 3 s (up to 2 minutes) and reads `moving` / `home` / `cloud_status`. Item 3 shows up as: the person sees the
 share checks only after the move (they confirm the move first, then the checks, then the link).
 
+Slice 4 (Trust and add) notes: the preview shows title, owner, role and what the role allows (worked out from the role). Check
+results are NOT shown, because the cloud's preview carries none (item 2). The app takes a pasted link, or `gaca://join/<token>`; it does
+not register an `https://<site>/join/...` App Link, because that needs a host in the manifest and the website's `assetlinks.json`
+(item 9). The preview has no page id, so "already a member" re-runs the (idempotent) join to find the id before opening.
+
 Status after gaca-api PR #66 and #67: items 1, 4 and 5 are DONE and used by the app; 2, 3, 6 are open on the server side; 7 is
 answered (no 402 at free launch; the app shows the server's message if it ever comes); 8 and 9 are open (see each).
 

@@ -16,10 +16,24 @@ import java.io.IOException
 // ── What a person can be given ───────────────────────────────────────────────
 
 /** The three modes of an invite link. The role is fixed when the link is made; the owner can't be granted. */
-enum class ShareRole(val wire: String, val label: String, val canDo: String) {
-    Viewer("viewer", "Viewer", "Can open the page and read its data. Cannot change anything."),
-    Editor("editor", "Editor", "Can read and change the page's data (checked against its shapes). Cannot change the page itself."),
-    Maintainer("maintainer", "Maintainer", "Can change the data and edit the page itself. Every edit is versioned and checked, and you can undo it."),
+enum class ShareRole(val wire: String, val label: String, val canDo: String, val youCan: String) {
+    Viewer(
+        "viewer", "Viewer", "Can open the page and read its data. Cannot change anything.",
+        "You can open the page and read its data. You can't change anything.",
+    ),
+    Editor(
+        "editor", "Editor", "Can read and change the page's data (checked against its shapes). Cannot change the page itself.",
+        "You can read and change the page's data. You can't change the page itself.",
+    ),
+    Maintainer(
+        "maintainer", "Maintainer", "Can change the data and edit the page itself. Every edit is versioned and checked, and you can undo it.",
+        "You can change the data and edit the page itself. Every edit is versioned and checked, and the owner can undo it.",
+    ),
+    ;
+
+    companion object {
+        fun fromWire(value: String): ShareRole? = entries.firstOrNull { it.wire.equals(value, ignoreCase = true) }
+    }
 }
 
 val EXPIRY_CHOICES_DAYS = listOf(1, 7, 30)

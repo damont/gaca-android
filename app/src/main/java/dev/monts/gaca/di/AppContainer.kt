@@ -9,6 +9,7 @@ import dev.monts.gaca.data.remote.SseClient
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.ArtifactRepository
 import dev.monts.gaca.data.repo.CloudLinkRepository
+import dev.monts.gaca.data.repo.JoinRepository
 import dev.monts.gaca.data.repo.ShareRepository
 import dev.monts.gaca.data.repo.TemplatesRepository
 import dev.monts.gaca.data.repo.AuthRepository
@@ -95,4 +96,5 @@ class AppContainer(context: Context) {
     val cloudLinkRepository = CloudLinkRepository(api)
     val templatesRepository = TemplatesRepository(api)
     val shareRepository = ShareRepository(api, longApi)
+    val joinRepository = JoinRepository(api)
 }

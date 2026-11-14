@@ -91,6 +91,7 @@ fun ArtifactsScreen(
     viewModel: ArtifactsViewModel,
     onOpenSettings: () -> Unit,
     onOpenArtifact: (String) -> Unit,
+    onJoinWithLink: () -> Unit,
     /** Builds the share sheet's ViewModel for one page (a fresh one each time the sheet opens). */
     shareFactory: (Artifact) -> androidx.lifecycle.ViewModelProvider.Factory,
 ) {
@@ -138,6 +139,9 @@ fun ArtifactsScreen(
                     label = { Text(filter.label) },
                 )
             }
+        }
+        if (state.filter == ArtifactFilter.Shared) {
+            TextButton(onClick = onJoinWithLink, modifier = Modifier.padding(horizontal = 14.dp)) { Text("Join with a link") }
         }
         if (!gallery) {
             Row(Modifier.padding(horizontal = 22.dp, vertical = 2.dp)) {

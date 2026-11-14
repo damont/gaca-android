@@ -639,3 +639,21 @@ data class InviteLinkDto(
     @SerialName("expires_at") val expiresAt: String? = null,
     @SerialName("max_uses") val maxUses: Int = 1,
 )
+
+// ── Joining a page someone shared: preview an invite link, then accept it ──────
+
+@Serializable
+data class InviteTokenDto(val token: String)
+
+/** What an invite link would add. The cloud sends no page data here, and no id. */
+@Serializable
+data class InvitePreviewDto(
+    @SerialName("gacabit_title") val gacabitTitle: String = "",
+    val role: String = "viewer",
+    @SerialName("invited_by") val invitedBy: AccountRefDto? = null,
+    @SerialName("already_member") val alreadyMember: Boolean = false,
+)
+
+/** The page you were added to (only the bits the app needs; the server answers with a whole list row). */
+@Serializable
+data class RedeemedDto(val id: String = "", val title: String = "")
