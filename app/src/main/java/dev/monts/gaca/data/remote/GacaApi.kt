@@ -153,4 +153,18 @@ interface GacaApi {
 
     @POST("push/unregister")
     suspend fun unregisterPushToken(@Body body: PushTokenUnregisterRequest)
+
+    // ── GACA Cloud link (the server forwards to the cloud; the app never does) ──
+
+    @GET("cloud/link")
+    suspend fun getCloudLink(): CloudLinkStatusDto
+
+    @POST("cloud/link/start")
+    suspend fun startCloudLink(@Body body: CloudLinkStartRequest): CloudLinkStartedDto
+
+    @POST("cloud/link/poll")
+    suspend fun pollCloudLink(): CloudLinkPollDto
+
+    @DELETE("cloud/link")
+    suspend fun unlinkCloud(@Query("force") force: Boolean = false): CloudUnlinkedDto
 }
