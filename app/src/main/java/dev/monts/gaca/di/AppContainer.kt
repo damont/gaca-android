@@ -9,6 +9,7 @@ import dev.monts.gaca.data.remote.SseClient
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.ArtifactRepository
 import dev.monts.gaca.data.repo.CloudLinkRepository
+import dev.monts.gaca.data.repo.ShareRepository
 import dev.monts.gaca.data.repo.TemplatesRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.BriefingRepository
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -60,12 +62,20 @@ class AppContainer(context: Context) {
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
-    val api: GacaApi = Retrofit.Builder()
+    private fun retrofitFor(client: OkHttpClient): GacaApi = Retrofit.Builder()
         .baseUrl(baseUrl)
-        .client(okHttpClient)
+        .client(client)
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
         .create(GacaApi::class.java)
+
+    val api: GacaApi = retrofitFor(okHttpClient)
+
+    /** For the few calls that block on the server while it works (moving a page to the cloud uploads it, then checks
+     * the copy). The normal client gives up after 10 seconds of silence. */
+    private val longApi: GacaApi = retrofitFor(
+        okHttpClient.newBuilder().readTimeout(5, TimeUnit.MINUTES).callTimeout(6, TimeUnit.MINUTES).build(),
+    )
 
     // Same client, same base URL as [api] above — Retrofit doesn't stream, so
     // the one SSE endpoint (session events) goes over OkHttp directly instead.
@@ -84,4 +94,5 @@ class AppContainer(context: Context) {
     val artifactRepository = ArtifactRepository(api, okHttpClient, baseUrl)
     val cloudLinkRepository = CloudLinkRepository(api)
     val templatesRepository = TemplatesRepository(api)
+    val shareRepository = ShareRepository(api, longApi)
 }

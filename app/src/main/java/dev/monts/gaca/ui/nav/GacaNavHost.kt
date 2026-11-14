@@ -50,6 +50,7 @@ import dev.monts.gaca.ui.artifact.ArtifactViewModel
 import dev.monts.gaca.ui.artifact.ArtifactViewScreen
 import dev.monts.gaca.ui.artifact.ArtifactsScreen
 import dev.monts.gaca.ui.artifact.ArtifactsViewModel
+import dev.monts.gaca.ui.artifact.ShareViewModel
 import dev.monts.gaca.ui.common.ArtifactLinkEnv
 import dev.monts.gaca.ui.common.LocalArtifactLinks
 import dev.monts.gaca.ui.automations.AutomationDetailScreen
@@ -283,6 +284,13 @@ fun GacaNavHost(
                     viewModel = vm,
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                     onOpenArtifact = { id -> navController.navigate("artifact/$id") },
+                    shareFactory = { artifact ->
+                        viewModelFactory {
+                            initializer {
+                                ShareViewModel(artifact.id, artifact.title, artifact.home, container.shareRepository, container.cloudLinkRepository, vm::refresh)
+                            }
+                        }
+                    },
                 )
             }
         }

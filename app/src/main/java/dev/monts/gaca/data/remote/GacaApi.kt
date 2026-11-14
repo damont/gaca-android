@@ -177,6 +177,19 @@ interface GacaApi {
     @POST("cloud/templates/{id}/install")
     suspend fun installTemplate(@Path("id") id: String): ArtifactDto
 
+    @GET("artifacts/{id}/move-preview")
+    suspend fun movePreview(@Path("id") id: String): MovePreviewDto
+
+    /** Blocks until the move is done (it uploads, then checks the cloud copy), so use the long-timeout client. */
+    @POST("artifacts/{id}/move-to-cloud")
+    suspend fun moveToCloud(@Path("id") id: String, @Body body: MoveRequestDto): MoveResultDto
+
+    @POST("cloud/gacabits/{id}/validations")
+    suspend fun runValidation(@Path("id") id: String, @Body body: ValidationRunRequestDto): ValidationReportDto
+
+    @POST("cloud/gacabits/{id}/invites")
+    suspend fun createInvite(@Path("id") id: String, @Body body: InviteCreateRequestDto): InviteLinkDto
+
     @PUT("cloud/agent-access")
     suspend fun setCloudAgentAccess(@Body body: CloudAgentAccessRequest): CloudLinkStatusDto
 

@@ -30,6 +30,9 @@ val Artifact.isSharedWithMe: Boolean get() = !isMine
 /** Archive and delete belong to the owner: the cloud refuses them to everybody else. */
 val Artifact.canManage: Boolean get() = isMine
 
+/** Only the owner shares, and not while it is archived or in the middle of a move. */
+val Artifact.canShare: Boolean get() = isMine && !archived && !moving && cloudStatus !in setOf("moving", "read_only", "brought_home")
+
 fun Artifact.matches(filter: ArtifactFilter): Boolean = when (filter) {
     ArtifactFilter.Mine -> isMine
     ArtifactFilter.Shared -> isSharedWithMe
