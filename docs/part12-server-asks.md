@@ -1,5 +1,9 @@
 # Part 12 (gacabits in the app): what the app needs from gaca-api
 
+Slice 3 (share sheet) notes: the app uses a 5-minute read timeout for `move-to-cloud`, and if the connection drops it polls
+`GET /artifacts/{id}` every 3 s (up to 2 minutes) and reads `moving` / `home` / `cloud_status`. Item 3 shows up as: the person sees the
+share checks only after the move (they confirm the move first, then the checks, then the link).
+
 Status after gaca-api PR #66 and #67: items 1, 4 and 5 are DONE and used by the app; 2, 3, 6 are open on the server side; 7 is
 answered (no 402 at free launch; the app shows the server's message if it ever comes); 8 and 9 are open (see each).
 

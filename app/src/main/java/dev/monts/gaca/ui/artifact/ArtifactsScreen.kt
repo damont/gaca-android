@@ -68,6 +68,7 @@ import dev.monts.gaca.data.repo.ArtifactFilter
 import dev.monts.gaca.data.repo.Template
 import dev.monts.gaca.data.repo.badges
 import dev.monts.gaca.data.repo.canManage
+import dev.monts.gaca.data.repo.canShare
 import dev.monts.gaca.data.repo.isSharedWithMe
 import dev.monts.gaca.data.repo.peopleLine
 import dev.monts.gaca.data.repo.sharedByLine
@@ -90,10 +91,13 @@ fun ArtifactsScreen(
     viewModel: ArtifactsViewModel,
     onOpenSettings: () -> Unit,
     onOpenArtifact: (String) -> Unit,
+    /** Builds the share sheet's ViewModel for one page (a fresh one each time the sheet opens). */
+    shareFactory: (Artifact) -> androidx.lifecycle.ViewModelProvider.Factory,
 ) {
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Artifact?>(null) }
     var pendingInstall by remember { mutableStateOf<Template?>(null) }
+    var sharing by remember { mutableStateOf<Pair<Artifact, String>?>(null) }
     val gallery = state.filter == ArtifactFilter.Gallery
 
     Column(
@@ -224,6 +228,11 @@ fun ArtifactsScreen(
                                 onOpen = { onOpenArtifact(artifact.id) },
                                 onArchive = { viewModel.archive(artifact) },
                                 onDelete = { pendingDelete = artifact },
+                                onShare = if (artifact.canShare) {
+                                    { sharing = artifact to java.util.UUID.randomUUID().toString() }
+                                } else {
+                                    null
+                                },
                                 onMoveToTop = if (canReorder && currentArtifacts.firstOrNull()?.id != artifact.id) {
                                     { viewModel.moveToTop(artifact) }
                                 } else {
@@ -271,6 +280,12 @@ fun ArtifactsScreen(
         }
     }
 
+    sharing?.let { (artifact, session) ->
+        // `session` makes a new ViewModel every time the sheet opens, so an old link is never shown again.
+        val shareVm = androidx.lifecycle.viewmodel.compose.viewModel<ShareViewModel>(key = "share-$session", factory = shareFactory(artifact))
+        ShareSheet(shareVm, onDismiss = { sharing = null }, onOpenSettings = onOpenSettings)
+    }
+
     pendingInstall?.let { template ->
         AlertDialog(
             onDismissRequest = { pendingInstall = null },
@@ -298,6 +313,7 @@ private fun ArtifactRow(
     onOpen: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
+    onShare: (() -> Unit)?,
     onMoveToTop: (() -> Unit)?,
     dragHandle: Modifier?,
     modifier: Modifier = Modifier,
@@ -334,13 +350,16 @@ private fun ArtifactRow(
             Spacer(Modifier.height(6.dp))
             BadgeRow(artifact)
         }
-        if (onMoveToTop != null || artifact.canManage) Box {
+        if (onMoveToTop != null || onShare != null || artifact.canManage) Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = TextMeta)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 if (onMoveToTop != null) {
                     DropdownMenuItem(text = { Text("Move to top") }, onClick = { menuOpen = false; onMoveToTop() })
+                }
+                if (onShare != null) {
+                    DropdownMenuItem(text = { Text("Share…") }, onClick = { menuOpen = false; onShare() })
                 }
                 // Only the owner may archive or delete: the cloud refuses both to everyone else.
                 if (artifact.canManage) {

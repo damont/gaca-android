@@ -3,6 +3,7 @@ package dev.monts.gaca.data.remote
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 // Mirrors the gaca-api wire format. The server, not this file, is the source of truth:
 // if the two disagree, fetch <base>/api/openapi.json and trust that.
@@ -575,4 +576,66 @@ data class CloudUnlinkedDto(
     val unlinked: Boolean = false,
     @SerialName("cloud_revoked") val cloudRevoked: Boolean = false,
     val message: String = "",
+)
+
+// ── Sharing a page: move it to the cloud, check it, make an invite link ────────
+// All through the person's own server (<base>/artifacts/{id}/... and <base>/cloud/gacabits/{id}/...).
+
+@Serializable
+data class NotCarriedDto(
+    @SerialName("versions_dropped") val versionsDropped: Int = 0,
+    @SerialName("handled_events_dropped") val handledEventsDropped: Int = 0,
+    val crew: String? = null,
+    @SerialName("chat_alert_links") val chatAlertLinks: JsonObject? = null,
+    @SerialName("doc_versions_reset") val docVersionsReset: Int = 0,
+    @SerialName("last_opened") val lastOpened: Boolean = false,
+    val anything: Boolean = false,
+)
+
+@Serializable
+data class MoveSizeDto(val bytes: Long = 0, @SerialName("limit_bytes") val limitBytes: Long = 0)
+
+/** GET /artifacts/{id}/move-preview: what a move would do. Nothing is sent anywhere. */
+@Serializable
+data class MovePreviewDto(
+    @SerialName("can_move") val canMove: Boolean = false,
+    @SerialName("blocked_because") val blockedBecause: String? = null,
+    val problems: List<JsonElement> = emptyList(),
+    val size: MoveSizeDto = MoveSizeDto(),
+    @SerialName("not_carried") val notCarried: NotCarriedDto = NotCarriedDto(),
+    @SerialName("requires_acknowledgement") val requiresAcknowledgement: Boolean = false,
+    @SerialName("backup_days") val backupDays: Int = 30,
+)
+
+@Serializable
+data class MoveRequestDto(@SerialName("acknowledge_not_carried") val acknowledgeNotCarried: Boolean)
+
+@Serializable
+data class MoveResultDto(val artifact: ArtifactDto, val verified: Boolean = false)
+
+/** `subject` has no default so it is always sent. */
+@Serializable
+data class ValidationRunRequestDto(val subject: String)
+
+@Serializable
+data class FindingDto(val rule: String = "", val severity: String = "info", val message: String = "", val location: String? = null)
+
+@Serializable
+data class ValidationReportDto(val status: String = "pending", val findings: List<FindingDto> = emptyList())
+
+@Serializable
+data class InviteCreateRequestDto(
+    val role: String,
+    @SerialName("expires_in_days") val expiresInDays: Int,
+    @SerialName("max_uses") val maxUses: Int,
+)
+
+/** The answer to creating an invite link. `url` is the secret link and comes back only this once. */
+@Serializable
+data class InviteLinkDto(
+    val id: String = "",
+    val role: String = "viewer",
+    val url: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("max_uses") val maxUses: Int = 1,
 )
