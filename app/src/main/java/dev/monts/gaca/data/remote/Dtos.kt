@@ -492,7 +492,20 @@ data class CloudLinkStatusDto(
     @SerialName("account_id") val accountId: String? = null,
     @SerialName("linked_at") val linkedAt: String? = null,
     val scope: String? = null,
+    /** The owner's switch: may their agents (Hermes) use the cloud? Off until switched on here. */
+    @SerialName("agent_access") val agentAccess: Boolean = false,
+    /** False when the server has no cloud address at all, so linking cannot work. Older servers omit it (= true). */
+    val configured: Boolean = true,
+    /** A link in progress (paired app only, and only while the code is valid), so the same code can be shown again. */
+    @SerialName("user_code") val userCode: String? = null,
+    @SerialName("verification_uri") val verificationUri: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    val interval: Int? = null,
 )
+
+/** PUT /cloud/agent-access. */
+@Serializable
+data class CloudAgentAccessRequest(val enabled: Boolean)
 
 /** POST /cloud/link/start. `scope` has no default on purpose: the app's Json leaves defaults out, and we want it sent. */
 @Serializable

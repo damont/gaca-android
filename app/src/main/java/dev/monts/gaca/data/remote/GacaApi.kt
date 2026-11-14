@@ -165,6 +165,9 @@ interface GacaApi {
     @POST("cloud/link/poll")
     suspend fun pollCloudLink(): CloudLinkPollDto
 
+    @PUT("cloud/agent-access")
+    suspend fun setCloudAgentAccess(@Body body: CloudAgentAccessRequest): CloudLinkStatusDto
+
     @DELETE("cloud/link")
     suspend fun unlinkCloud(@Query("force") force: Boolean = false): CloudUnlinkedDto
 }

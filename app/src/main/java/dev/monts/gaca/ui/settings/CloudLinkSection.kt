@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -108,12 +109,25 @@ fun CloudLinkSection(viewModel: CloudLinkViewModel) {
                 )
             }
             Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Let my agent use the cloud", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                    Text(
+                        "Off by default. When on, your agents can see and use your cloud pages. Sharing and publishing " +
+                            "always need your tap in this app.",
+                        style = MaterialTheme.typography.bodySmall, color = TextMeta,
+                    )
+                }
+                Switch(checked = status.agentAccess, onCheckedChange = viewModel::setAgentAccess)
+            }
+            Spacer(Modifier.height(10.dp))
             Pill("Unlink", subtle = true, onClick = viewModel::askUnlink)
         }
         else -> Card {
-            val line = when (status.kind) {
-                CloudLinkKind.Invalid -> "The cloud no longer accepts this server's link. Link again to keep sharing."
-                CloudLinkKind.Pending -> "A link was started but not finished. Start again to get a fresh code."
+            val line = when {
+                !status.configured -> "GACA Cloud isn't set up on this server, so linking isn't available."
+                status.kind == CloudLinkKind.Invalid -> "The cloud no longer accepts this server's link. Link again to keep sharing."
+                status.kind == CloudLinkKind.Pending -> "A link was started but its code ran out. Start again to get a fresh code."
                 else -> "Not linked."
             }
             Text(line, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -124,8 +138,10 @@ fun CloudLinkSection(viewModel: CloudLinkViewModel) {
                     style = MaterialTheme.typography.bodySmall, color = SeverityUrgentDot,
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            Pill(if (status.kind == CloudLinkKind.Invalid) "Link again" else "Link GACA Cloud", onClick = viewModel::startLinking)
+            if (status.configured) {
+                Spacer(Modifier.height(10.dp))
+                Pill(if (status.kind == CloudLinkKind.Invalid) "Link again" else "Link GACA Cloud", onClick = viewModel::startLinking)
+            }
         }
     }
 

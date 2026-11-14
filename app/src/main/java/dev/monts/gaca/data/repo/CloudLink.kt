@@ -1,5 +1,6 @@
 package dev.monts.gaca.data.repo
 
+import dev.monts.gaca.data.remote.CloudAgentAccessRequest
 import dev.monts.gaca.data.remote.CloudLinkPollDto
 import dev.monts.gaca.data.remote.CloudLinkStartRequest
 import dev.monts.gaca.data.remote.CloudLinkStartedDto
@@ -20,6 +21,12 @@ data class CloudLinkStatus(
     /** `manage` (can move, share, publish) or `read` (can only list and read). */
     val scope: String? = null,
     val linkedAt: Instant? = null,
+    /** May the person's agents (Hermes) use the cloud? Their choice, off by default. */
+    val agentAccess: Boolean = false,
+    /** False: this server has no cloud address, so there is nothing to link to. */
+    val configured: Boolean = true,
+    /** While [kind] is Pending and the code is still valid: the code to show again. */
+    val pending: LinkAttempt? = null,
 ) {
     val isLinked get() = kind == CloudLinkKind.Linked
 }
@@ -32,6 +39,8 @@ fun CloudLinkStatusDto.toDomain() = CloudLinkStatus(
         else -> CloudLinkKind.NotLinked
     },
     handle = handle, scope = scope, linkedAt = parseInstant(linkedAt),
+    agentAccess = agentAccess, configured = configured,
+    pending = pendingAttempt(userCode, verificationUri, parseInstant(expiresAt), interval),
 )
 
 /** A link attempt in progress: the person types or checks [userCode] on the page at [verificationUri]. */
@@ -41,6 +50,10 @@ data class LinkAttempt(
     val expiresAt: Instant,
     val intervalSeconds: Int,
 )
+
+/** The attempt the server still remembers, or null when any part is missing (an expired code comes back as nulls). */
+internal fun pendingAttempt(code: String?, uri: String?, expiresAt: Instant?, interval: Int?): LinkAttempt? =
+    if (code == null || uri == null || expiresAt == null) null else LinkAttempt(code, uri, expiresAt, interval ?: 5)
 
 fun CloudLinkStartedDto.toAttempt(now: Instant) = LinkAttempt(
     userCode = userCode, verificationUri = verificationUri,
@@ -76,6 +89,10 @@ sealed interface UnlinkResult {
 
 class CloudLinkRepository(private val api: GacaApi) {
     suspend fun status(): CloudLinkStatus = api.getCloudLink().toDomain()
+
+    /** The owner's switch for their agents. The server answers with the whole status. */
+    suspend fun setAgentAccess(enabled: Boolean): CloudLinkStatus =
+        api.setCloudAgentAccess(CloudAgentAccessRequest(enabled)).toDomain()
 
     /** Starts linking with the `manage` scope (the app can move, share and publish on the person's behalf, each only after they confirm). */
     suspend fun start(now: Instant = Instant.now()): LinkAttempt =

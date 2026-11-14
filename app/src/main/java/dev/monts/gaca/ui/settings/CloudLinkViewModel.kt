@@ -2,6 +2,7 @@ package dev.monts.gaca.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.monts.gaca.data.repo.CloudLinkKind
 import dev.monts.gaca.data.repo.CloudLinkRepository
 import dev.monts.gaca.data.repo.CloudLinkStatus
 import dev.monts.gaca.data.repo.LinkAttempt
@@ -61,6 +62,14 @@ class CloudLinkViewModel(private val repo: CloudLinkRepository) : ViewModel() {
             try {
                 val status = repo.status()
                 _uiState.update { it.copy(loading = false, status = status) }
+                // Left Settings mid-link? The server remembers the code: show it again and keep polling.
+                val pending = status.pending
+                if (status.kind == CloudLinkKind.Pending && pending != null && _uiState.value.attempt == null &&
+                    Instant.now().isBefore(pending.expiresAt)
+                ) {
+                    _uiState.update { it.copy(attempt = pending) }
+                    startPolling(pending)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -133,6 +142,22 @@ class CloudLinkViewModel(private val repo: CloudLinkRepository) : ViewModel() {
                         return@launch
                     }
                 }
+            }
+        }
+    }
+
+    /** The switch moves at once; if the server says no it goes back and the reason shows. */
+    fun setAgentAccess(enabled: Boolean) {
+        val before = _uiState.value.status ?: return
+        _uiState.update { it.copy(status = before.copy(agentAccess = enabled), error = null) }
+        viewModelScope.launch {
+            try {
+                val saved = repo.setAgentAccess(enabled)
+                _uiState.update { it.copy(status = saved) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(status = before, error = e.friendlyMessage()) }
             }
         }
     }
