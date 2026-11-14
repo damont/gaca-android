@@ -24,13 +24,28 @@ data class Artifact(
     val version: Int,
     val updatedAt: String,
     val lastOpenedAt: String?,
+    val home: ArtifactHome = ArtifactHome.Local,
+    val role: ArtifactRole = ArtifactRole.Owner,
+    /** The owner's handle when this page is somebody else's. */
+    val sharedBy: String? = null,
+    val memberCount: Int = 1,
+    val moving: Boolean = false,
+    val cloudStatus: String? = null,
+    val publishedTemplateId: String? = null,
 )
 
 fun ArtifactDto.toDomain() = Artifact(
     id = id, title = title, description = description, crew = crew, sessionId = sessionId,
     alertId = alertId, archived = archived, version = version, updatedAt = updatedAt,
     lastOpenedAt = lastOpenedAt,
+    home = if (home == "cloud") ArtifactHome.Cloud else ArtifactHome.Local,
+    role = ArtifactRole.parse(role), sharedBy = sharedBy?.takeIf { it.isNotBlank() },
+    memberCount = memberCount, moving = moving, cloudStatus = cloudStatus,
+    publishedTemplateId = publishedTemplateId?.takeIf { it.isNotBlank() },
 )
+
+/** The artifact list as the server gave it. [stale]: the cloud could not be asked, so cloud rows are the last known. */
+data class ArtifactList(val items: List<Artifact>, val stale: Boolean)
 
 /** The answer to a raw API call made on behalf of a page: HTTP status plus the JSON text. */
 class RawResponse(val status: Int, val body: String)
@@ -66,8 +81,12 @@ class ArtifactRepository(
 ) {
     private val titles = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-    suspend fun list(includeArchived: Boolean = false): List<Artifact> =
-        api.listArtifacts(includeArchived).artifacts.map { it.toDomain() }.also { all -> all.forEach { titles[it.id] = it.title } }
+    suspend fun list(includeArchived: Boolean = false): ArtifactList {
+        val dto = api.listArtifacts(includeArchived)
+        val items = dto.artifacts.map { it.toDomain() }
+        items.forEach { titles[it.id] = it.title }
+        return ArtifactList(items, dto.stale)
+    }
 
     suspend fun get(id: String): Artifact = api.getArtifact(id).toDomain().also { titles[it.id] = it.title }
 

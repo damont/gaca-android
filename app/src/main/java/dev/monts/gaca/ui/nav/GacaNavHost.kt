@@ -275,7 +275,7 @@ fun GacaNavHost(
         }
         composable(ROUTE_ARTIFACTS) {
             val vm = viewModel<ArtifactsViewModel>(
-                factory = viewModelFactory { initializer { ArtifactsViewModel(container.artifactRepository) } },
+                factory = viewModelFactory { initializer { ArtifactsViewModel(container.artifactRepository, container.templatesRepository) } },
             )
             LaunchedEffect(Unit) { vm.refresh() } // pages may have been made or changed since last visit
             TabbedScreen(navController, currentRoute) {
