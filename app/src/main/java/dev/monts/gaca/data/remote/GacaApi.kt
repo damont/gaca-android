@@ -165,6 +165,21 @@ interface GacaApi {
     @POST("cloud/link/poll")
     suspend fun pollCloudLink(): CloudLinkPollDto
 
+    /** The cloud's gallery, read through the server. Null parameters are left out of the request. */
+    @GET("cloud/templates")
+    suspend fun listTemplates(
+        @Query("q") query: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("cursor") cursor: String? = null,
+    ): TemplateListDto
+
+    /** Makes a private copy of a template on this server. Answers with the new page. */
+    @POST("cloud/templates/{id}/install")
+    suspend fun installTemplate(@Path("id") id: String): ArtifactDto
+
+    @PUT("cloud/agent-access")
+    suspend fun setCloudAgentAccess(@Body body: CloudAgentAccessRequest): CloudLinkStatusDto
+
     @DELETE("cloud/link")
     suspend fun unlinkCloud(@Query("force") force: Boolean = false): CloudUnlinkedDto
 }

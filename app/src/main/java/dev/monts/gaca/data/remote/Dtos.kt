@@ -449,6 +449,19 @@ data class ArtifactDto(
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
     @SerialName("last_opened_at") val lastOpenedAt: String? = null,
+    // Cloud-aware fields (servers before Part 8 omit them: a local page you own).
+    /** `local` (on your server) or `cloud`. */
+    val home: String = "local",
+    /** Your role on it: owner, maintainer, editor or viewer. */
+    val role: String = "owner",
+    /** The owner's handle when it is not you. */
+    @SerialName("shared_by") val sharedBy: String? = null,
+    @SerialName("member_count") val memberCount: Int = 1,
+    /** True while it is being moved to the cloud (read-only until that ends). */
+    val moving: Boolean = false,
+    @SerialName("cloud_status") val cloudStatus: String? = null,
+    /** Set once this page has been published to the gallery. */
+    @SerialName("published_template_id") val publishedTemplateId: String? = null,
 )
 
 @Serializable
@@ -457,6 +470,31 @@ data class ArtifactOrderRequest(val ids: List<String>)
 @Serializable
 data class ArtifactListDto(
     val artifacts: List<ArtifactDto> = emptyList(),
+    /** True when the cloud could not be asked and the cloud rows are from the server's last look. */
+    val stale: Boolean = false,
+)
+
+// ── Gallery: public templates in the cloud (read through the server) ───────────
+
+@Serializable
+data class AccountRefDto(val id: String = "", val handle: String = "", @SerialName("display_name") val displayName: String? = null)
+
+@Serializable
+data class TemplateDto(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    val tags: List<String> = emptyList(),
+    val category: String? = null,
+    val author: AccountRefDto? = null,
+    val status: String = "listed",
+    val downloads: Int = 0,
+)
+
+@Serializable
+data class TemplateListDto(
+    val templates: List<TemplateDto> = emptyList(),
+    @SerialName("next_cursor") val nextCursor: String? = null,
 )
 
 @Serializable
@@ -492,7 +530,20 @@ data class CloudLinkStatusDto(
     @SerialName("account_id") val accountId: String? = null,
     @SerialName("linked_at") val linkedAt: String? = null,
     val scope: String? = null,
+    /** The owner's switch: may their agents (Hermes) use the cloud? Off until switched on here. */
+    @SerialName("agent_access") val agentAccess: Boolean = false,
+    /** False when the server has no cloud address at all, so linking cannot work. Older servers omit it (= true). */
+    val configured: Boolean = true,
+    /** A link in progress (paired app only, and only while the code is valid), so the same code can be shown again. */
+    @SerialName("user_code") val userCode: String? = null,
+    @SerialName("verification_uri") val verificationUri: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    val interval: Int? = null,
 )
+
+/** PUT /cloud/agent-access. */
+@Serializable
+data class CloudAgentAccessRequest(val enabled: Boolean)
 
 /** POST /cloud/link/start. `scope` has no default on purpose: the app's Json leaves defaults out, and we want it sent. */
 @Serializable

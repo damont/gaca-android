@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,7 +59,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material3.Button
 import dev.monts.gaca.data.repo.Artifact
+import dev.monts.gaca.data.repo.ArtifactBadge
+import dev.monts.gaca.data.repo.ArtifactFilter
+import dev.monts.gaca.data.repo.Template
+import dev.monts.gaca.data.repo.badges
+import dev.monts.gaca.data.repo.canManage
+import dev.monts.gaca.data.repo.isSharedWithMe
+import dev.monts.gaca.data.repo.peopleLine
+import dev.monts.gaca.data.repo.sharedByLine
+import dev.monts.gaca.data.repo.transferLine
+import dev.monts.gaca.ui.theme.ChipBackground
+import dev.monts.gaca.ui.theme.SuccessBg
+import dev.monts.gaca.ui.theme.SuccessInk
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
@@ -75,6 +93,8 @@ fun ArtifactsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Artifact?>(null) }
+    var pendingInstall by remember { mutableStateOf<Template?>(null) }
+    val gallery = state.filter == ArtifactFilter.Gallery
 
     Column(
         Modifier
@@ -96,21 +116,46 @@ fun ArtifactsScreen(
             }
         }
 
-        if (state.artifacts.isNotEmpty() || state.query.isNotEmpty()) {
+        if (state.artifacts.isNotEmpty() || state.query.isNotEmpty() || gallery) {
             OutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::setQuery,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
-                placeholder = { Text("Search pages…") },
+                placeholder = { Text(if (gallery) "Search the gallery…" else "Search pages…") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = TextMeta) },
                 singleLine = true,
             )
         }
-        Row(Modifier.padding(horizontal = 22.dp, vertical = 2.dp)) {
-            FilterChip(
-                selected = state.showArchived,
-                onClick = { viewModel.setShowArchived(!state.showArchived) },
-                label = { Text("Show archived") },
+        Row(Modifier.padding(horizontal = 22.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ArtifactFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = state.filter == filter,
+                    onClick = { viewModel.setFilter(filter) },
+                    label = { Text(filter.label) },
+                )
+            }
+        }
+        if (!gallery) {
+            Row(Modifier.padding(horizontal = 22.dp, vertical = 2.dp)) {
+                FilterChip(
+                    selected = state.showArchived,
+                    onClick = { viewModel.setShowArchived(!state.showArchived) },
+                    label = { Text("Show archived") },
+                )
+            }
+        }
+        if (state.stale && !gallery) {
+            Text(
+                "The cloud could not be reached, so shared pages are as they were last time.",
+                style = MaterialTheme.typography.bodySmall, color = TextMeta,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
+            )
+        }
+        state.notice?.let { notice ->
+            Text(
+                notice,
+                style = MaterialTheme.typography.bodySmall, color = SuccessInk,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = viewModel::dismissNotice).padding(horizontal = 22.dp, vertical = 4.dp),
             )
         }
 
@@ -125,18 +170,29 @@ fun ArtifactsScreen(
         }
 
         PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
+            isRefreshing = if (gallery) state.gallery.loading && state.gallery.loaded else state.isRefreshing,
             onRefresh = viewModel::refresh,
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             when {
+                gallery -> GalleryContent(
+                    state = state,
+                    onInstall = { pendingInstall = it },
+                    onMore = viewModel::loadMoreGallery,
+                    onRetry = viewModel::loadGallery,
+                    onOpenSettings = onOpenSettings,
+                )
                 state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = HeaderAccent)
                 }
                 state.visible.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (state.artifacts.isEmpty()) {
-                            "Nothing here yet. Ask your crew for a page — a Costco list, a trip planner, a tracker — and it will show up here."
+                        if (state.artifacts.isEmpty() || state.filter == ArtifactFilter.Shared && state.artifacts.none { it.isSharedWithMe }) {
+                            if (state.filter == ArtifactFilter.Shared) {
+                                "Nothing has been shared with you yet. When someone sends you a link to a page, it will show up here."
+                            } else {
+                                "Nothing here yet. Ask your crew for a page — a Costco list, a trip planner, a tracker — and it will show up here."
+                            }
                         } else {
                             "No pages match."
                         },
@@ -215,6 +271,16 @@ fun ArtifactsScreen(
         }
     }
 
+    pendingInstall?.let { template ->
+        AlertDialog(
+            onDismissRequest = { pendingInstall = null },
+            title = { Text("Add “${template.title}”?") },
+            text = { Text("A copy is made on your server and appears under Mine. It is private to you until you share it.") },
+            confirmButton = { TextButton(onClick = { viewModel.install(template); pendingInstall = null }) { Text("Add") } },
+            dismissButton = { TextButton(onClick = { pendingInstall = null }) { Text("Cancel") } },
+        )
+    }
+
     pendingDelete?.let { artifact ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
@@ -265,8 +331,10 @@ private fun ArtifactRow(
                 if (artifact.archived) "archived" else null,
             ).joinToString(" · ")
             Text(meta, style = MaterialTheme.typography.labelSmall, color = TextMeta)
+            Spacer(Modifier.height(6.dp))
+            BadgeRow(artifact)
         }
-        Box {
+        if (onMoveToTop != null || artifact.canManage) Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = TextMeta)
             }
@@ -274,12 +342,123 @@ private fun ArtifactRow(
                 if (onMoveToTop != null) {
                     DropdownMenuItem(text = { Text("Move to top") }, onClick = { menuOpen = false; onMoveToTop() })
                 }
-                DropdownMenuItem(
-                    text = { Text(if (artifact.archived) "Unarchive" else "Archive") },
-                    onClick = { menuOpen = false; onArchive() },
-                )
-                DropdownMenuItem(text = { Text("Delete…") }, onClick = { menuOpen = false; onDelete() })
+                // Only the owner may archive or delete: the cloud refuses both to everyone else.
+                if (artifact.canManage) {
+                    DropdownMenuItem(
+                        text = { Text(if (artifact.archived) "Unarchive" else "Archive") },
+                        onClick = { menuOpen = false; onArchive() },
+                    )
+                    DropdownMenuItem(text = { Text("Delete…") }, onClick = { menuOpen = false; onDelete() })
+                }
             }
+        } else {
+            Spacer(Modifier.width(12.dp))
+        }
+    }
+}
+
+/** Private / Shared / Published, plus for somebody else's page the people icon, "Shared by …" and your role. */
+@Composable
+private fun BadgeRow(artifact: Artifact) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        artifact.badges.forEach { Tag(it.label, if (it == ArtifactBadge.Published) SuccessBg else ChipBackground, if (it == ArtifactBadge.Published) SuccessInk else HeaderAccent) }
+        val who = artifact.sharedByLine ?: artifact.peopleLine
+        if (who != null) {
+            Icon(Icons.Filled.Group, contentDescription = "Shared", tint = TextMeta, modifier = Modifier.size(14.dp))
+            Text(who, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        }
+        if (artifact.isSharedWithMe) Tag(artifact.role.label, ChipBackground, HeaderAccent)
+        artifact.transferLine?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = TextMeta) }
+    }
+}
+
+@Composable
+private fun Tag(text: String, background: androidx.compose.ui.graphics.Color, ink: androidx.compose.ui.graphics.Color) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = ink,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(background).padding(horizontal = 7.dp, vertical = 2.dp),
+    )
+}
+
+/** The cloud's public templates: tap Add to get a private copy. */
+@Composable
+private fun GalleryContent(
+    state: ArtifactsUiState,
+    onInstall: (Template) -> Unit,
+    onMore: () -> Unit,
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val g = state.gallery
+    when {
+        g.problem != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(40.dp)) {
+                Text(
+                    when (val problem = g.problem) {
+                        GalleryProblem.NotLinked -> "Link your server to GACA Cloud to browse the gallery."
+                        GalleryProblem.NotConfigured -> "GACA Cloud isn't set up on this server."
+                        is GalleryProblem.Failed -> problem.message
+                        null -> ""
+                    },
+                    style = MaterialTheme.typography.bodyMedium, color = TextMeta, textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(12.dp))
+                when (g.problem) {
+                    GalleryProblem.NotLinked -> Button(onClick = onOpenSettings) { Text("Open Settings") }
+                    GalleryProblem.NotConfigured -> Unit
+                    else -> TextButton(onClick = onRetry) { Text("Try again") }
+                }
+            }
+        }
+        !g.loaded || (g.loading && g.templates.isEmpty()) -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = HeaderAccent)
+        }
+        state.visibleTemplates.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                if (g.templates.isEmpty()) "The gallery is empty for now." else "No templates match.",
+                style = MaterialTheme.typography.bodyMedium, color = TextMeta, textAlign = TextAlign.Center, modifier = Modifier.padding(40.dp),
+            )
+        }
+        else -> LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 22.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(state.visibleTemplates, key = { it.id }) { template ->
+                TemplateRow(template, adding = g.installingId == template.id, enabled = g.installingId == null, onAdd = { onInstall(template) })
+            }
+            if (g.nextCursor != null) {
+                item {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        if (g.loadingMore) CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else TextButton(onClick = onMore) { Text("Show more") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TemplateRow(template: Template, adding: Boolean, enabled: Boolean, onAdd: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(OnAccent).padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(template.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            template.description?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            val meta = listOfNotNull(template.author?.let { "by $it" }, template.category, if (template.downloads > 0) "${template.downloads} added" else null).joinToString(" · ")
+            if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelSmall, color = TextMeta)
+        }
+        if (adding) {
+            CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.padding(12.dp).size(20.dp), strokeWidth = 2.dp)
+        } else {
+            TextButton(onClick = onAdd, enabled = enabled) { Text("Add") }
         }
     }
 }

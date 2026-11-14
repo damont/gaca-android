@@ -84,4 +84,31 @@ class CloudLinkTest {
         assertNull(junk.code); assertNull(junk.message)
         assertFalse(parseApiError(500, null).info != null)
     }
+
+    @Test fun `older servers that omit the new fields read as configured, agent access off, nothing pending`() {
+        val status = json.decodeFromString<CloudLinkStatusDto>("""{"linked":false,"state":"none"}""").toDomain()
+        assertTrue(status.configured)
+        assertFalse(status.agentAccess)
+        assertNull(status.pending)
+    }
+
+    @Test fun `a server with no cloud address says so, and agent access comes through`() {
+        assertFalse(CloudLinkStatusDto(configured = false).toDomain().configured)
+        assertTrue(CloudLinkStatusDto(linked = true, state = "linked", agentAccess = true).toDomain().agentAccess)
+    }
+
+    @Test fun `a link in progress gives back its code to show again, an expired one gives nothing`() {
+        val live = json.decodeFromString<CloudLinkStatusDto>(
+            """{"linked":false,"state":"pending","user_code":"ABCD-1234","verification_uri":"https://cloud.example/link",
+               "expires_at":"2026-11-10T12:10:00Z","expires_in":300,"interval":5}""",
+        ).toDomain()
+        assertEquals(CloudLinkKind.Pending, live.kind)
+        assertEquals("ABCD-1234", live.pending?.userCode)
+        assertEquals(Instant.parse("2026-11-10T12:10:00Z"), live.pending?.expiresAt)
+        assertEquals(5, live.pending?.intervalSeconds)
+        val expired = json.decodeFromString<CloudLinkStatusDto>(
+            """{"linked":false,"state":"pending","user_code":null,"verification_uri":null,"expires_at":null}""",
+        ).toDomain()
+        assertNull(expired.pending)
+    }
 }
