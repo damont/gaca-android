@@ -24,8 +24,8 @@ class PublishTest {
         assertEquals("Garden", listing.cleanTitle)
         assertNull(listing.cleanDescription)
         assertEquals(
-            """{"subject":"publish","title":"Garden"}""",
-            json.encodeToString(PublishCheckRequestDto("publish", listing.cleanTitle, listing.cleanDescription)),
+            """{"title":"Garden"}""",
+            json.encodeToString(PublishCheckRequestDto(listing.cleanTitle, listing.cleanDescription)),
         )
         assertEquals(
             """{"title":"Garden","visibility":"unlisted","confirmed_preview":true,"preview_hash":"h1"}""",
@@ -83,10 +83,12 @@ class PublishTest {
         assertTrue(PublishedPage("t", "blocked").message.contains("not visible"))
     }
 
-    @Test fun `only an idle cloud page you own can be published or brought home`() {
+    @Test fun `any idle page you own can be published, private or in the cloud, but only a cloud page comes home`() {
         assertTrue(page().canPublish)
+        assertTrue(page(home = ArtifactHome.Local).canPublish)
         assertTrue(page().canBringHome)
-        assertFalse(page(home = ArtifactHome.Local).canPublish)
+        assertFalse(page(home = ArtifactHome.Local).canBringHome)
+        assertFalse(page(moving = true).canPublish)
         assertFalse(page(moving = true).canBringHome)
         assertFalse(page(role = ArtifactRole.Editor).canPublish)
     }

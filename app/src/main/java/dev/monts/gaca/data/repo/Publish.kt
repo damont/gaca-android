@@ -82,7 +82,7 @@ fun TemplateDto.toPublished() = PublishedPage(title, status)
 
 class PublishRepository(private val api: GacaApi) {
     suspend fun check(id: String, listing: PublishListing): PublishReview =
-        api.runPublishCheck(id, PublishCheckRequestDto("publish", listing.cleanTitle, listing.cleanDescription))
+        api.runPublishCheck(id, PublishCheckRequestDto(listing.cleanTitle, listing.cleanDescription))
             .toPublishReview(listing.cleanTitle)
 
     /** Only after the person confirmed the preview whose [hash] this is. The cloud refuses if anything changed since. */

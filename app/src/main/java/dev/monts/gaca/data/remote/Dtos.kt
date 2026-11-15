@@ -629,9 +629,12 @@ data class ValidationReportDto(
     val preview: JsonObject? = null,
 )
 
-/** Check what publishing would put out. `subject` and `title` have no default so they are always sent. */
+/**
+ * Check what publishing would put out. The server refuses unknown fields, so there is no `subject` here: publishing
+ * has its own route, apart from sharing. `title` has no default so it is always sent.
+ */
 @Serializable
-data class PublishCheckRequestDto(val subject: String, val title: String, val description: String? = null)
+data class PublishCheckRequestDto(val title: String, val description: String? = null)
 
 /** The same listing text as the check (the hash covers it), plus the person's confirmation of that preview. */
 @Serializable

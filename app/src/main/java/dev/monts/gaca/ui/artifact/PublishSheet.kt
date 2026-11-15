@@ -72,7 +72,7 @@ fun PublishSheet(viewModel: PublishViewModel, onDismiss: () -> Unit, onOpenSetti
 private fun Form(state: PublishUiState, vm: PublishViewModel) {
     val listing = state.listing
     Text(
-        "Publishing makes a public copy of the page and its shapes. Your data is never published.",
+        "Publishing makes a public copy of the page and its shapes for others to download. Your data is never published, and the page stays where it is and stays yours.",
         style = MaterialTheme.typography.bodySmall, color = TextSecondary,
     )
     OutlinedTextField(

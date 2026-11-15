@@ -68,7 +68,7 @@ talks only to its own server, and the server forwards.
     item, so the app cannot show "Undo" later. Putting `undo_until` on the list row would allow that.
 12. **Publish listing fields.** The app sends only title, description and visibility; tags, category and license use the
     cloud defaults. Say if the app should offer them.
-13. **Publish a private page without moving it.** Publishing is only the page and its shapes (never data), and it is a
+13. **DONE (gaca-api Part 8e + cloud Brief 1; the app uses `artifacts/{id}/publish-check` and `publish`).** **Publish a private page without moving it.** Publishing is only the page and its shapes (never data), and it is a
     different act from sharing. Today `POST /cloud/gacabits/{id}/publish` needs the whole gacabit, with its data, to
     live in the cloud, so the app can only offer Publish on pages that already moved there. Wanted: a server route
     that publishes a local page's code side directly (the server sends only html and schemas to the cloud, then
