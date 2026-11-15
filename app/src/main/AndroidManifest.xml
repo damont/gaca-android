@@ -35,6 +35,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="gaca" android:host="artifact" />
             </intent-filter>
+            <!-- gaca://join/<token>: an invite link to a page someone shared. (No https filter: that needs the website's
+                 assetlinks.json and a hard-coded host; until then a pasted https link works from Add a shared page.) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gaca" android:host="join" />
+            </intent-filter>
             <!-- gaca://setup?url=<server>&code=<setup code>: what the server's QR code carries. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

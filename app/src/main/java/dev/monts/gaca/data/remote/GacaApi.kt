@@ -190,6 +190,12 @@ interface GacaApi {
     @POST("cloud/gacabits/{id}/invites")
     suspend fun createInvite(@Path("id") id: String, @Body body: InviteCreateRequestDto): InviteLinkDto
 
+    @POST("cloud/invites/preview")
+    suspend fun previewInvite(@Body body: InviteTokenDto): InvitePreviewDto
+
+    @POST("cloud/invites/redeem")
+    suspend fun redeemInvite(@Body body: InviteTokenDto): RedeemedDto
+
     @PUT("cloud/agent-access")
     suspend fun setCloudAgentAccess(@Body body: CloudAgentAccessRequest): CloudLinkStatusDto
 

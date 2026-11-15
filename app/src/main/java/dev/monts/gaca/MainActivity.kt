@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
     private val pendingSessionId = mutableStateOf<String?>(null)
     private val pendingArtifactId = mutableStateOf<String?>(null)
     private val pendingSetupLink = mutableStateOf<SetupLink?>(null)
+    /** A `gaca://join/<token>` link, kept as typed until the join screen has read it. */
+    private val pendingJoinLink = mutableStateOf<String?>(null)
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* declining just means no future pushes show — nothing to react to here */ }
@@ -39,6 +41,7 @@ class MainActivity : ComponentActivity() {
         pendingSessionId.value = intent?.getStringExtra(EXTRA_SESSION_ID)
         pendingArtifactId.value = artifactIdFrom(intent)
         pendingSetupLink.value = setupLinkFrom(intent)
+        pendingJoinLink.value = joinLinkFrom(intent)
         requestNotificationPermissionIfNeeded()
 
         val app = application as GacaApp
@@ -69,6 +72,8 @@ class MainActivity : ComponentActivity() {
                     onPendingSetupConsumed = { pendingSetupLink.value = null },
                     pendingArtifactId = pendingArtifactId.value,
                     onPendingArtifactConsumed = { pendingArtifactId.value = null },
+                    pendingJoinLink = pendingJoinLink.value,
+                    onPendingJoinConsumed = { pendingJoinLink.value = null },
                 )
                 }
             }
@@ -83,11 +88,18 @@ class MainActivity : ComponentActivity() {
         pendingSessionId.value = intent.getStringExtra(EXTRA_SESSION_ID)
         pendingArtifactId.value = artifactIdFrom(intent)
         pendingSetupLink.value = setupLinkFrom(intent)
+        pendingJoinLink.value = joinLinkFrom(intent)
     }
 
     /** `gaca://setup?url=…&code=…` (what the QR code from `gaca-api pair` carries); acted on while this phone is not paired. */
     private fun setupLinkFrom(intent: Intent?): SetupLink? {
         return parseSetupLink(intent?.dataString)
+    }
+
+    /** `gaca://join/<token>` → the whole link (the join screen reads the token out of it). */
+    private fun joinLinkFrom(intent: Intent?): String? {
+        val uri = intent?.data ?: return null
+        return if (uri.scheme == "gaca" && uri.host == "join") intent.dataString else null
     }
 
     /** `gaca://artifact/<id>` → the id (ids are 32 hex characters; anything else is ignored). */
