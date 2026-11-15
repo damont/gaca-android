@@ -621,7 +621,42 @@ data class ValidationRunRequestDto(val subject: String)
 data class FindingDto(val rule: String = "", val severity: String = "info", val message: String = "", val location: String? = null)
 
 @Serializable
-data class ValidationReportDto(val status: String = "pending", val findings: List<FindingDto> = emptyList())
+data class ValidationReportDto(
+    val status: String = "pending",
+    val findings: List<FindingDto> = emptyList(),
+    /** Publish checks only: the hash of exactly what would be published, and that content itself. */
+    @SerialName("content_hash") val contentHash: String? = null,
+    val preview: JsonObject? = null,
+)
+
+/** Check what publishing would put out. `subject` and `title` have no default so they are always sent. */
+@Serializable
+data class PublishCheckRequestDto(val subject: String, val title: String, val description: String? = null)
+
+/** The same listing text as the check (the hash covers it), plus the person's confirmation of that preview. */
+@Serializable
+data class PublishRequestDto(
+    val title: String,
+    val description: String? = null,
+    val visibility: String,
+    @SerialName("confirmed_preview") val confirmedPreview: Boolean,
+    @SerialName("preview_hash") val previewHash: String,
+)
+
+@Serializable
+data class BringHomeRequestDto(@SerialName("acknowledge_members") val acknowledgeMembers: Boolean)
+
+@Serializable
+data class BringHomeResultDto(
+    val artifact: ArtifactDto,
+    val confirmed: Boolean = true,
+    @SerialName("undo_until") val undoUntil: String? = null,
+    val warning: String? = null,
+    @SerialName("members_lost_access") val membersLostAccess: Int = 0,
+)
+
+@Serializable
+data class UndoResultDto(val home: String = "local", val undone: Boolean = false)
 
 @Serializable
 data class InviteCreateRequestDto(

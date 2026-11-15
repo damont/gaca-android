@@ -58,3 +58,13 @@ talks only to its own server, and the server forwards.
   through from the cloud). The app reads `code` and `info`.
 * Link: `start`, `poll` (honours `interval`/`retry_in`), `unlink` with `force`, and the `409 cloud_artifacts_present`
   `info` counts are enough for slice 1.
+
+## Slice 5 (publish, bring home, leave) - asked of the server
+
+10. **Bring home is a blocking request** like the move. The app uses the 5 minute client and, if the phone drops, only
+    says to check the list. If the server can say whether a bring home is still running (like `moving` for a move),
+    the app could wait it out the way it does for a move.
+11. **Undo of a bring home is only offered right after it.** `undo_until` comes back on the result but not on the list
+    item, so the app cannot show "Undo" later. Putting `undo_until` on the list row would allow that.
+12. **Publish listing fields.** The app sends only title, description and visibility; tags, category and license use the
+    cloud defaults. Say if the app should offer them.
