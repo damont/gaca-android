@@ -187,11 +187,12 @@ interface GacaApi {
     @POST("cloud/gacabits/{id}/validations")
     suspend fun runValidation(@Path("id") id: String, @Body body: ValidationRunRequestDto): ValidationReportDto
 
-    /** The publish check: the same call with `subject: "publish"` and the listing text. */
-    @POST("cloud/gacabits/{id}/validations")
+    /** What publishing would put out, for a private page and a cloud page alike. Nothing is published. */
+    @POST("artifacts/{id}/publish-check")
     suspend fun runPublishCheck(@Path("id") id: String, @Body body: PublishCheckRequestDto): ValidationReportDto
 
-    @POST("cloud/gacabits/{id}/publish")
+    /** Publishes what the person confirmed. The server decides whether the page is private or in the cloud. */
+    @POST("artifacts/{id}/publish")
     suspend fun publish(@Path("id") id: String, @Body body: PublishRequestDto): TemplateDto
 
     /** Brings a cloud page you own back here. Blocks until it has arrived, so use the long-timeout client. */
