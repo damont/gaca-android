@@ -45,7 +45,7 @@ talks only to its own server, and the server forwards.
 7. **Billing at launch** (blocks slice 3 and 5 wording). The cloud contract answers `402 billing_required` for
    create/move when there is no payment method. For a free launch, confirm the cloud will not return it. If it can
    still appear, the app will show the server's message and nothing billing-specific.
-8. **Template shape for the Gallery, still to verify live** (slice 2: coded against `Template` in the cloud's `openapi.yaml`; unchecked against a live answer). `GET /cloud/templates` is a raw pass-through. The app will code
+8. **Template shape for the Gallery — checked on a phone, works (2026-11-15; the list was empty-ish, 35-byte body, so field names for real templates are still unseen)** (slice 2: coded against `Template` in the cloud's `openapi.yaml`; unchecked against a live answer). `GET /cloud/templates` is a raw pass-through. The app will code
    against `Template` / `TemplateList` in the cloud's `openapi.yaml`; please confirm that is what arrives, including
    the author's handle and a stable id for `install`.
 9. **Invite link host.** `POST .../invites` returns the cloud's `url` as is. The app copies it and never builds one.
