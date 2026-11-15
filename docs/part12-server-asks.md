@@ -58,3 +58,19 @@ talks only to its own server, and the server forwards.
   through from the cloud). The app reads `code` and `info`.
 * Link: `start`, `poll` (honours `interval`/`retry_in`), `unlink` with `force`, and the `409 cloud_artifacts_present`
   `info` counts are enough for slice 1.
+
+## Slice 5 (publish, bring home, leave) - asked of the server
+
+10. **Bring home is a blocking request** like the move. The app uses the 5 minute client and, if the phone drops, only
+    says to check the list. If the server can say whether a bring home is still running (like `moving` for a move),
+    the app could wait it out the way it does for a move.
+11. **Undo of a bring home is only offered right after it.** `undo_until` comes back on the result but not on the list
+    item, so the app cannot show "Undo" later. Putting `undo_until` on the list row would allow that.
+12. **Publish listing fields.** The app sends only title, description and visibility; tags, category and license use the
+    cloud defaults. Say if the app should offer them.
+13. **Publish a private page without moving it.** Publishing is only the page and its shapes (never data), and it is a
+    different act from sharing. Today `POST /cloud/gacabits/{id}/publish` needs the whole gacabit, with its data, to
+    live in the cloud, so the app can only offer Publish on pages that already moved there. Wanted: a server route
+    that publishes a local page's code side directly (the server sends only html and schemas to the cloud, then
+    previews and confirms the same way), so a private page can be published and stay private. Until then the app does
+    not offer Publish on private pages, and does not move them silently to make it work.

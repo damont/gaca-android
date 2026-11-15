@@ -68,6 +68,10 @@ import dev.monts.gaca.data.repo.ArtifactFilter
 import dev.monts.gaca.data.repo.Template
 import dev.monts.gaca.data.repo.badges
 import dev.monts.gaca.data.repo.canManage
+import dev.monts.gaca.data.repo.bringHomeWarning
+import dev.monts.gaca.data.repo.canBringHome
+import dev.monts.gaca.data.repo.canLeave
+import dev.monts.gaca.data.repo.canPublish
 import dev.monts.gaca.data.repo.canShare
 import dev.monts.gaca.data.repo.isSharedWithMe
 import dev.monts.gaca.data.repo.peopleLine
@@ -94,11 +98,16 @@ fun ArtifactsScreen(
     onJoinWithLink: () -> Unit,
     /** Builds the share sheet's ViewModel for one page (a fresh one each time the sheet opens). */
     shareFactory: (Artifact) -> androidx.lifecycle.ViewModelProvider.Factory,
+    /** Same for the publish sheet. */
+    publishFactory: (Artifact) -> androidx.lifecycle.ViewModelProvider.Factory,
 ) {
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Artifact?>(null) }
     var pendingInstall by remember { mutableStateOf<Template?>(null) }
     var sharing by remember { mutableStateOf<Pair<Artifact, String>?>(null) }
+    var publishing by remember { mutableStateOf<Pair<Artifact, String>?>(null) }
+    var pendingBringHome by remember { mutableStateOf<Artifact?>(null) }
+    var pendingLeave by remember { mutableStateOf<Artifact?>(null) }
     val gallery = state.filter == ArtifactFilter.Gallery
 
     Column(
@@ -160,11 +169,17 @@ fun ArtifactsScreen(
             )
         }
         state.notice?.let { notice ->
-            Text(
-                notice,
-                style = MaterialTheme.typography.bodySmall, color = SuccessInk,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = viewModel::dismissNotice).padding(horizontal = 22.dp, vertical = 4.dp),
-            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    notice,
+                    style = MaterialTheme.typography.bodySmall, color = SuccessInk,
+                    modifier = Modifier.weight(1f).clickable(onClick = viewModel::dismissNotice),
+                )
+                if (state.undo != null) TextButton(onClick = viewModel::undoBringHome, enabled = !state.working) { Text("Undo") }
+            }
         }
 
         val errorText = state.error
@@ -232,6 +247,13 @@ fun ArtifactsScreen(
                                 onOpen = { onOpenArtifact(artifact.id) },
                                 onArchive = { viewModel.archive(artifact) },
                                 onDelete = { pendingDelete = artifact },
+                                onPublish = if (artifact.canPublish) {
+                                    { publishing = artifact to java.util.UUID.randomUUID().toString() }
+                                } else {
+                                    null
+                                },
+                                onBringHome = if (artifact.canBringHome && !state.working) { { pendingBringHome = artifact } } else null,
+                                onLeave = if (artifact.canLeave && !state.working) { { pendingLeave = artifact } } else null,
                                 onShare = if (artifact.canShare) {
                                     { sharing = artifact to java.util.UUID.randomUUID().toString() }
                                 } else {
@@ -290,6 +312,31 @@ fun ArtifactsScreen(
         ShareSheet(shareVm, onDismiss = { sharing = null }, onOpenSettings = onOpenSettings)
     }
 
+    publishing?.let { (artifact, session) ->
+        val publishVm = androidx.lifecycle.viewmodel.compose.viewModel<PublishViewModel>(key = "publish-$session", factory = publishFactory(artifact))
+        PublishSheet(publishVm, onDismiss = { publishing = null }, onOpenSettings = onOpenSettings)
+    }
+
+    pendingBringHome?.let { artifact ->
+        AlertDialog(
+            onDismissRequest = { pendingBringHome = null },
+            title = { Text("Bring “${artifact.title}” home?") },
+            text = { Text(bringHomeWarning(artifact)) },
+            confirmButton = { TextButton(onClick = { viewModel.bringHome(artifact); pendingBringHome = null }) { Text("Bring home") } },
+            dismissButton = { TextButton(onClick = { pendingBringHome = null }) { Text("Cancel") } },
+        )
+    }
+
+    pendingLeave?.let { artifact ->
+        AlertDialog(
+            onDismissRequest = { pendingLeave = null },
+            title = { Text("Leave “${artifact.title}”?") },
+            text = { Text("It disappears from your list. To get back in, you would need a new link from its owner.") },
+            confirmButton = { TextButton(onClick = { viewModel.leave(artifact); pendingLeave = null }) { Text("Leave") } },
+            dismissButton = { TextButton(onClick = { pendingLeave = null }) { Text("Cancel") } },
+        )
+    }
+
     pendingInstall?.let { template ->
         AlertDialog(
             onDismissRequest = { pendingInstall = null },
@@ -318,6 +365,9 @@ private fun ArtifactRow(
     onArchive: () -> Unit,
     onDelete: () -> Unit,
     onShare: (() -> Unit)?,
+    onPublish: (() -> Unit)?,
+    onBringHome: (() -> Unit)?,
+    onLeave: (() -> Unit)?,
     onMoveToTop: (() -> Unit)?,
     dragHandle: Modifier?,
     modifier: Modifier = Modifier,
@@ -354,7 +404,7 @@ private fun ArtifactRow(
             Spacer(Modifier.height(6.dp))
             BadgeRow(artifact)
         }
-        if (onMoveToTop != null || onShare != null || artifact.canManage) Box {
+        if (onMoveToTop != null || onShare != null || onPublish != null || onBringHome != null || onLeave != null || artifact.canManage) Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = TextMeta)
             }
@@ -364,6 +414,18 @@ private fun ArtifactRow(
                 }
                 if (onShare != null) {
                     DropdownMenuItem(text = { Text("Share…") }, onClick = { menuOpen = false; onShare() })
+                }
+                if (onPublish != null) {
+                    DropdownMenuItem(
+                        text = { Text(if (artifact.publishedTemplateId != null) "Publish new version…" else "Publish…") },
+                        onClick = { menuOpen = false; onPublish() },
+                    )
+                }
+                if (onBringHome != null) {
+                    DropdownMenuItem(text = { Text("Bring home…") }, onClick = { menuOpen = false; onBringHome() })
+                }
+                if (onLeave != null) {
+                    DropdownMenuItem(text = { Text("Leave…") }, onClick = { menuOpen = false; onLeave() })
                 }
                 // Only the owner may archive or delete: the cloud refuses both to everyone else.
                 if (artifact.canManage) {

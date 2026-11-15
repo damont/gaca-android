@@ -170,7 +170,7 @@ private fun Review(state: ShareUiState, phase: SharePhase.Review, vm: ShareViewM
 }
 
 @Composable
-private fun FindingRow(finding: Finding) {
+internal fun FindingRow(finding: Finding) {
     val tag = when (finding.severity) { FindingSeverity.Block -> "Problem"; FindingSeverity.Warn -> "Warning"; FindingSeverity.Info -> "Note" }
     Column {
         Text(
@@ -214,7 +214,7 @@ private fun copySecret(context: Context, text: String) {
 }
 
 @Composable
-private fun Working(text: String) {
+internal fun Working(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         Text(text, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(1f))
@@ -222,7 +222,7 @@ private fun Working(text: String) {
 }
 
 @Composable
-private fun Action(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun Action(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         Modifier.clip(RoundedCornerShape(10.dp)).background(if (enabled) HeaderAccent else ChipBackground)
             .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),

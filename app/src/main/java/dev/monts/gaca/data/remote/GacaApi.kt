@@ -187,6 +187,24 @@ interface GacaApi {
     @POST("cloud/gacabits/{id}/validations")
     suspend fun runValidation(@Path("id") id: String, @Body body: ValidationRunRequestDto): ValidationReportDto
 
+    /** The publish check: the same call with `subject: "publish"` and the listing text. */
+    @POST("cloud/gacabits/{id}/validations")
+    suspend fun runPublishCheck(@Path("id") id: String, @Body body: PublishCheckRequestDto): ValidationReportDto
+
+    @POST("cloud/gacabits/{id}/publish")
+    suspend fun publish(@Path("id") id: String, @Body body: PublishRequestDto): TemplateDto
+
+    /** Brings a cloud page you own back here. Blocks until it has arrived, so use the long-timeout client. */
+    @POST("artifacts/{id}/bring-home")
+    suspend fun bringHome(@Path("id") id: String, @Body body: BringHomeRequestDto): BringHomeResultDto
+
+    @POST("artifacts/{id}/undo-bring-home")
+    suspend fun undoBringHome(@Path("id") id: String): UndoResultDto
+
+    /** A member leaves a page shared with them. The owner can't (the cloud refuses). */
+    @POST("cloud/gacabits/{id}/leave")
+    suspend fun leaveGacabit(@Path("id") id: String)
+
     @POST("cloud/gacabits/{id}/invites")
     suspend fun createInvite(@Path("id") id: String, @Body body: InviteCreateRequestDto): InviteLinkDto
 

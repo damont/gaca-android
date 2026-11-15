@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.repo.Artifact
 import dev.monts.gaca.data.repo.ArtifactFilter
 import dev.monts.gaca.data.repo.ArtifactRepository
+import dev.monts.gaca.data.repo.HomeRepository
 import dev.monts.gaca.data.repo.Template
 import dev.monts.gaca.data.repo.TemplatesRepository
 import dev.monts.gaca.data.repo.matches
@@ -34,6 +35,9 @@ data class GalleryUiState(
     val installingId: String? = null,
 )
 
+/** A page just brought home, which the person can still send back to the cloud. */
+data class UndoOffer(val id: String, val title: String)
+
 data class ArtifactsUiState(
     val artifacts: List<Artifact> = emptyList(),
     val filter: ArtifactFilter = ArtifactFilter.Mine,
@@ -42,6 +46,10 @@ data class ArtifactsUiState(
     val gallery: GalleryUiState = GalleryUiState(),
     /** A one-line result, e.g. that a template was added. */
     val notice: String? = null,
+    /** Shown beside the notice after a bring home, until it is used or dismissed. */
+    val undo: UndoOffer? = null,
+    /** A bring home, undo or leave is running (bringing home can take a while). */
+    val working: Boolean = false,
     val query: String = "",
     val showArchived: Boolean = false,
     val isLoading: Boolean = true,
@@ -62,6 +70,7 @@ data class ArtifactsUiState(
 class ArtifactsViewModel(
     private val repo: ArtifactRepository,
     private val templates: TemplatesRepository,
+    private val home: HomeRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ArtifactsUiState())
@@ -78,7 +87,56 @@ class ArtifactsViewModel(
         if (filter == ArtifactFilter.Gallery && !_uiState.value.gallery.loaded) loadGallery()
     }
 
-    fun dismissNotice() = _uiState.update { it.copy(notice = null) }
+    fun dismissNotice() = _uiState.update { it.copy(notice = null, undo = null) }
+
+    // ── bring home, undo, leave (each is confirmed in the screen before it gets here) ──────
+
+    /** Brings a cloud page you own back to this server. Other people lose access, which the screen has said. */
+    fun bringHome(artifact: Artifact) = transfer("Bringing “${artifact.title}” home…") {
+        val result = home.bringHome(artifact)
+        val lost = result.membersLostAccess
+        val note = if (lost > 0) " ${if (lost == 1) "1 person" else "$lost people"} lost access." else ""
+        val unconfirmed = if (result.warning != null) " ${result.warning}" else ""
+        "“${artifact.title}” is back on your server.$note$unconfirmed" to
+            (if (result.undoUntil != null) UndoOffer(artifact.id, artifact.title) else null)
+    }
+
+    /** Sends a page that was just brought home back to the cloud. The server refuses if it was edited here since. */
+    fun undoBringHome() {
+        val offer = _uiState.value.undo ?: return
+        transfer("Undoing…") {
+            if (home.undoBringHome(offer.id)) "“${offer.title}” is back in the cloud." to null
+            else "Nothing to undo: “${offer.title}” stays on your server." to null
+        }
+    }
+
+    /** Walks away from a page someone shared with you. */
+    fun leave(artifact: Artifact) = transfer("Leaving “${artifact.title}”…") {
+        home.leave(artifact.id)
+        "You left “${artifact.title}”." to null
+    }
+
+    private fun transfer(start: String, block: suspend () -> Pair<String, UndoOffer?>) {
+        if (_uiState.value.working) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(working = true, notice = start, undo = null, error = null) }
+            try {
+                val (done, undo) = block()
+                _uiState.update { it.copy(working = false, notice = done, undo = undo) }
+                load(showSpinner = false)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val message = if (e.apiError()?.code == "members_will_lose_access") {
+                    "Other people share this page now. Refresh the list and try again to see who would lose access."
+                } else {
+                    e.friendlyMessage()
+                }
+                _uiState.update { it.copy(working = false, notice = null, error = message) }
+                load(showSpinner = false) // a failed move may still have changed where the page lives
+            }
+        }
+    }
 
     // ── gallery ────────────────────────────────────────────────────────
 

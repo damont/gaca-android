@@ -33,6 +33,14 @@ val Artifact.canManage: Boolean get() = isMine
 /** Only the owner shares, and not while it is archived or in the middle of a move. */
 val Artifact.canShare: Boolean get() = isMine && !archived && !moving && cloudStatus !in setOf("moving", "read_only", "brought_home")
 
+/** Publishing and bringing home both start from a cloud page you own that isn't busy. */
+val Artifact.canPublish: Boolean get() = canShare && home == ArtifactHome.Cloud
+
+val Artifact.canBringHome: Boolean get() = canPublish
+
+/** A page someone shared with you, which you can walk away from. */
+val Artifact.canLeave: Boolean get() = isSharedWithMe && home == ArtifactHome.Cloud && !moving
+
 fun Artifact.matches(filter: ArtifactFilter): Boolean = when (filter) {
     ArtifactFilter.Mine -> isMine
     ArtifactFilter.Shared -> isSharedWithMe

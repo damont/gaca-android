@@ -50,6 +50,7 @@ import dev.monts.gaca.ui.artifact.ArtifactViewModel
 import dev.monts.gaca.ui.artifact.ArtifactViewScreen
 import dev.monts.gaca.ui.artifact.ArtifactsScreen
 import dev.monts.gaca.ui.artifact.ArtifactsViewModel
+import dev.monts.gaca.ui.artifact.PublishViewModel
 import dev.monts.gaca.ui.artifact.ShareViewModel
 import dev.monts.gaca.ui.common.ArtifactLinkEnv
 import dev.monts.gaca.ui.common.LocalArtifactLinks
@@ -292,7 +293,7 @@ fun GacaNavHost(
         }
         composable(ROUTE_ARTIFACTS) {
             val vm = viewModel<ArtifactsViewModel>(
-                factory = viewModelFactory { initializer { ArtifactsViewModel(container.artifactRepository, container.templatesRepository) } },
+                factory = viewModelFactory { initializer { ArtifactsViewModel(container.artifactRepository, container.templatesRepository, container.homeRepository) } },
             )
             LaunchedEffect(Unit) { vm.refresh() } // pages may have been made or changed since last visit
             TabbedScreen(navController, currentRoute) {
@@ -301,6 +302,13 @@ fun GacaNavHost(
                     onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
                     onOpenArtifact = { id -> navController.navigate("artifact/$id") },
                     onJoinWithLink = { navController.navigate(ROUTE_JOIN) },
+                    publishFactory = { artifact ->
+                        viewModelFactory {
+                            initializer {
+                                PublishViewModel(artifact.id, artifact.title, artifact.publishedTemplateId != null, container.publishRepository, container.cloudLinkRepository, vm::refresh)
+                            }
+                        }
+                    },
                     shareFactory = { artifact ->
                         viewModelFactory {
                             initializer {
