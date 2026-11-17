@@ -72,10 +72,8 @@ import dev.monts.gaca.ui.theme.TextSecondary
 import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 
-/** Legal per api-contract.md §3's transition table: `delegated` and the two
- * terminal states only settle on their own, so a swipe there would just 409.
- * NEW covers both `new` and `completed` — both are triageable the same way. */
-private fun InboxTab.isSwipeTriageable(): Boolean = this == InboxTab.NEW || this == InboxTab.SNOOZED
+/** Only open alerts can be swiped away: left = not useful, right = I handled it. */
+private fun InboxTab.isSwipeTriageable(): Boolean = this == InboxTab.NEW
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -401,16 +399,15 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
                         Text(crewLabel(alert.crew, true), style = MaterialTheme.typography.labelSmall, color = TextMeta, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                 }
-                // A `completed` alert sits in the same tab as `new` ones —
-                // this is what tells them apart at a glance.
-                if (alert.effectiveStatus == "completed") {
+                // What it is doing right now ("Working…", "Draft ready · waiting for you") — the API's words.
+                alert.workflow.phaseLabel?.takeIf { alert.status == "new" }?.let { label ->
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(dotColor.copy(alpha = 0.18f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
-                        Text("Hermes replied", style = MaterialTheme.typography.labelSmall, color = dotColor)
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                     }
                 }
             }

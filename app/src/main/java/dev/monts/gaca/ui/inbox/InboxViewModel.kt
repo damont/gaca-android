@@ -15,14 +15,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class InboxTab(val statuses: List<String>, val label: String) {
-    /** `completed` — Hermes finishing a delegated run — belongs here, not in
-     * History: finishing isn't the same as being closed out, and it's still
-     * triageable exactly like `new` (see api-contract.md §3). */
-    NEW(listOf("new", "completed"), "Needs Attention"),
-    SNOOZED(listOf("snoozed"), "Snoozed"),
-    DELEGATED(listOf("delegated"), "Delegated"),
-    /** Terminal alerts — the two settled states, `act` and `dismiss`, read together as one history. */
-    HISTORY(listOf("acted", "dismissed"), "History"),
+    /** Open alerts: `new` is the only open status. Whatever is mid-run or waiting on you is still open. */
+    NEW(listOf("new"), "Needs Attention"),
+    /** Closed alerts, however they ended (done by Hermes, by you, good to know, not useful). */
+    HISTORY(listOf("done_by_gaca", "done_by_me", "noted", "not_useful"), "History"),
 }
 
 data class InboxUiState(
@@ -73,9 +69,11 @@ class InboxViewModel(
         load(showSpinner = true)
     }
 
-    fun dismiss(alertId: String) = resolve(alertId) { repo.dismiss(alertId, note = null) }
+    /** Swipe left: not worth their time. */
+    fun dismiss(alertId: String) = resolve(alertId) { repo.close(alertId, "not_useful") }
 
-    fun act(alertId: String) = resolve(alertId) { repo.act(alertId, note = null) }
+    /** Swipe right: I handled it. */
+    fun act(alertId: String) = resolve(alertId) { repo.close(alertId, "done_by_me") }
 
     private fun resolve(alertId: String, call: suspend () -> Alert) {
         // Optimistic removal — swiping a card away should feel instant, not wait on the network.

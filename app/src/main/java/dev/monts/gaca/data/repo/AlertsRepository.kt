@@ -2,18 +2,16 @@ package dev.monts.gaca.data.repo
 
 import dev.monts.gaca.data.remote.AlertCreateRequest
 import dev.monts.gaca.data.remote.AlertDelegateRequest
-import dev.monts.gaca.data.remote.AlertResolveRequest
-import dev.monts.gaca.data.remote.AlertSnoozeRequest
+import dev.monts.gaca.data.remote.AlertCloseRequest
 import dev.monts.gaca.data.remote.AlertTakeToChatRequest
 import dev.monts.gaca.data.remote.GacaApi
 import dev.monts.gaca.util.friendlyMessage
 import retrofit2.HttpException
 
 /**
- * api-contract.md §5: plain polling, no stream. `GET /alerts` on
- * app-foreground plus pull-to-refresh is the whole story — no local
- * derivation of expired snoozes or legal transitions; the server owns that
- * (§7: "the app does not compute state").
+ * Plain polling, no stream. `GET /alerts` on app-foreground plus pull-to-refresh, and a short poll
+ * of one alert while an action runs. The app computes no state: what each action reads as, whether
+ * it can be tapped and which buttons close the alert all come from the API (`actions`, `workflow`).
  */
 class AlertsRepository(private val api: GacaApi) {
 
@@ -37,18 +35,16 @@ class AlertsRepository(private val api: GacaApi) {
     suspend fun getConversation(sessionId: String): List<ConversationMessage> =
         api.getSession(sessionId).messages.map { it.toDomain() }
 
-    suspend fun act(id: String, note: String?): Alert =
-        api.actOnAlert(id, AlertResolveRequest(note)).toDomain()
+    /** Close an open alert with one of the reasons the API offered in [Workflow.closeOptions]. */
+    suspend fun close(id: String, reason: String): Alert =
+        api.closeAlert(id, AlertCloseRequest(reason)).toDomain()
 
-    suspend fun dismiss(id: String, note: String?): Alert =
-        api.dismissAlert(id, AlertResolveRequest(note)).toDomain()
-
-    suspend fun snooze(id: String, untilIso: String): Alert =
-        api.snoozeAlert(id, AlertSnoozeRequest(untilIso)).toDomain()
+    /** Tap an action. Returns the alert with the run in flight; read it again to see it settle. */
+    suspend fun runAction(id: String, index: Int): Alert = api.runAlertAction(id, index).toDomain()
 
     /** Opens the chat for an alert WITHOUT sending anything to the crew member: the API creates
-     * the session, marks the alert handled, and returns [TakeToChat.draft] — the text to pre-fill
-     * in the message box (null when just reopening an existing chat). */
+     * the session (which always carries the alert as context) and closes the alert as handled by
+     * Hermes. [TakeToChat.draft] is only ever a picked action's one-line prompt — null here. */
     suspend fun takeToChat(id: String, suggestedActionIndex: Int?, crew: String? = null): TakeToChat =
         api.takeAlertToChat(id, AlertTakeToChatRequest(suggestedActionIndex, crew)).let {
             TakeToChat(it.alert.toDomain(), it.sessionId, it.draft)

@@ -95,14 +95,12 @@ interface GacaApi {
     @GET("alerts/{id}")
     suspend fun getAlert(@Path("id") id: String): AlertDto
 
-    @POST("alerts/{id}/act")
-    suspend fun actOnAlert(@Path("id") id: String, @Body body: AlertResolveRequest): AlertDto
+    @POST("alerts/{id}/close")
+    suspend fun closeAlert(@Path("id") id: String, @Body body: AlertCloseRequest): AlertDto
 
-    @POST("alerts/{id}/dismiss")
-    suspend fun dismissAlert(@Path("id") id: String, @Body body: AlertResolveRequest): AlertDto
-
-    @POST("alerts/{id}/snooze")
-    suspend fun snoozeAlert(@Path("id") id: String, @Body body: AlertSnoozeRequest): AlertDto
+    /** Tap one of the alert's actions; returns the alert with the run in flight. */
+    @POST("alerts/{id}/actions/{index}/run")
+    suspend fun runAlertAction(@Path("id") id: String, @Path("index") index: Int): AlertDto
 
     @POST("alerts/{id}/take-to-chat")
     suspend fun takeAlertToChat(@Path("id") id: String, @Body body: AlertTakeToChatRequest): TakeToChatDto
