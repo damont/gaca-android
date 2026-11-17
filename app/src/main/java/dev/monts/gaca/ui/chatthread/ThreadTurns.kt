@@ -127,6 +127,8 @@ fun CrewTurn(message: ConversationMessage, member: CrewMember?, fallbackName: St
         if (message.displayContent.isNotBlank()) {
             SelectionContainer { MarkdownText(message.displayContent) }
         }
+        // An email the agent wrote in this reply (the API split it out): the words above, the draft as a card.
+        message.draft?.let { dev.monts.gaca.ui.common.DraftCard(it, title = "Draft") }
         message.artifacts.forEach { PageCard(it, member) }
     }
 }

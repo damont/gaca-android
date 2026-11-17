@@ -452,7 +452,7 @@ fun GacaNavHost(
             AlertDetailScreen(
                 vm,
                 onBack = { navController.popBackStack() },
-                // The alert is handled the moment we move to chat, so Back from the chat
+                // Taking it to chat closes the alert (the API's call), so Back from the chat
                 // should land in the inbox, not on a finished alert: pop the detail screen.
                 onOpenChat = { sessionId, draft ->
                     val route = if (draft.isNullOrBlank()) {

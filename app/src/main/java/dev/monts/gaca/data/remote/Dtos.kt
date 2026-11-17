@@ -14,6 +14,71 @@ data class SuggestedActionDto(
     val prompt: String,
 )
 
+/** An email draft an agent wrote. The API built [mailto] and [copyText]; the app only opens or copies them. */
+@Serializable
+data class AlertDraftDto(
+    val to: String? = null,
+    val subject: String? = null,
+    val body: String,
+    @SerialName("copy_text") val copyText: String = body,
+    val mailto: String = "",
+)
+
+@Serializable
+data class ActionResultDto(
+    val summary: String? = null,
+    val links: List<AlertLinkDto> = emptyList(),
+    val draft: AlertDraftDto? = null,
+    val error: String? = null,
+)
+
+/** One tappable action and where it stands — `state` is idle / running / done / failed. The API decides
+ * all of it (label now, whether it can be tapped, the result); the app shows it. */
+@Serializable
+data class AlertActionDto(
+    val index: Int,
+    val kind: String? = null,
+    val label: String,
+    val detail: String? = null,
+    /** The word on the button: "Add", "Draft", "Do it". */
+    val cta: String = "Do it",
+    /** An "Add all"-style action: shown as the one big button, not as a row. */
+    val prominent: Boolean = false,
+    /** Where it stands while running ("Hermes is on it"). */
+    val note: String? = null,
+    val state: String = "idle",
+    @SerialName("can_run") val canRun: Boolean = false,
+    val result: ActionResultDto? = null,
+)
+
+@Serializable
+data class CloseOptionDto(
+    val reason: String,
+    val label: String,
+    val primary: Boolean = false,
+)
+
+@Serializable
+data class ChatEntryDto(
+    val hint: String = "",
+    val prominent: Boolean = false,
+)
+
+/** The layout decisions for an alert's screen, made by the API so every app behaves the same. */
+@Serializable
+data class AlertWorkflowDto(
+    /** open / working / waiting_on_you / closed */
+    val phase: String = "open",
+    @SerialName("phase_label") val phaseLabel: String? = null,
+    @SerialName("actions_heading") val actionsHeading: String? = null,
+    @SerialName("progress_label") val progressLabel: String? = null,
+    val chat: ChatEntryDto = ChatEntryDto(),
+    @SerialName("close_heading") val closeHeading: String? = null,
+    @SerialName("close_options") val closeOptions: List<CloseOptionDto> = emptyList(),
+    @SerialName("close_hint") val closeHint: String? = null,
+    @SerialName("closed_note") val closedNote: String? = null,
+)
+
 @Serializable
 data class AlertDto(
     val id: String,
@@ -27,15 +92,18 @@ data class AlertDto(
     val body: String? = null,
     val data: Map<String, JsonElement> = emptyMap(),
     @SerialName("dedupe_key") val dedupeKey: String? = null,
-    @SerialName("suggested_actions") val suggestedActions: List<SuggestedActionDto> = emptyList(),
     /** Web pages that go with this alert; the API always supplies a label. */
     val links: List<AlertLinkDto> = emptyList(),
     val status: String,
     @SerialName("effective_status") val effectiveStatus: String,
     @SerialName("status_changed_at") val statusChangedAt: String,
-    @SerialName("snooze_until") val snoozeUntil: String? = null,
     @SerialName("session_id") val sessionId: String? = null,
     @SerialName("resolution_note") val resolutionNote: String? = null,
+    /** The actions with their state and results, and how the screen lays out — see [AlertWorkflowDto]. */
+    val actions: List<AlertActionDto> = emptyList(),
+    val workflow: AlertWorkflowDto = AlertWorkflowDto(),
+    /** The latest email draft, if an agent wrote one. */
+    val draft: AlertDraftDto? = null,
     @SerialName("parent_alert_id") val parentAlertId: String? = null,
     /** An HTML page (artifact) published for this alert. */
     @SerialName("artifact_id") val artifactId: String? = null,
@@ -67,14 +135,11 @@ data class AlertCreateRequest(
     val crew: String? = null,
 )
 
+/** POST /alerts/{id}/close — `reason` is one the API offered in `workflow.close_options`. */
 @Serializable
-data class AlertResolveRequest(
+data class AlertCloseRequest(
+    val reason: String,
     val note: String? = null,
-)
-
-@Serializable
-data class AlertSnoozeRequest(
-    val until: String,
 )
 
 @Serializable
@@ -84,7 +149,7 @@ data class AlertDelegateRequest(
     val crew: String? = null,
 )
 
-/** POST /alerts/{id}/take-to-chat — opens the chat and returns a draft; nothing is sent. */
+/** POST /alerts/{id}/take-to-chat — opens the alert's chat; nothing is sent (the chat carries the alert itself). */
 @Serializable
 data class AlertTakeToChatRequest(
     @SerialName("suggested_action_index") val suggestedActionIndex: Int? = null,
@@ -176,6 +241,8 @@ data class MessageDto(
     val artifacts: List<MessageArtifactDto> = emptyList(),
     /** What the agent did to produce this reply; null when it used no tools. */
     val activity: ActivityDto? = null,
+    /** An email draft the agent wrote in this reply; when set, `display_content` is only the words before it. */
+    val draft: AlertDraftDto? = null,
 )
 
 @Serializable

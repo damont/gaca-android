@@ -3,53 +3,43 @@ package dev.monts.gaca.ui.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.monts.gaca.data.repo.Alert
-import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
-import dev.monts.gaca.data.repo.ConversationMessage
+import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.delegateErrorMessage
+import dev.monts.gaca.data.repo.isStaleTransition
 import dev.monts.gaca.util.friendlyMessage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
-
-data class SnoozeOption(val label: String, val until: Instant)
 
 data class AlertDetailUiState(
     val alert: Alert? = null,
+    /** This account's crew, only to colour the crew chip. Best-effort: empty just means a plain chip. */
+    val crew: List<CrewMember> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val showSnoozeOptions: Boolean = false,
-    val noteText: String = "",
-    val toast: String? = null,
-    /** One-shot: true once the alert has been resolved and the screen should pop back to the inbox. */
+    /** One-shot: true once the person has closed the alert and the screen should pop back to the inbox. */
     val done: Boolean = false,
-
-    /** This account's configured crew, for the "who handles this" picker. Only
-     * shown when there's more than one, so a single-crew-member account sees no extra UI. */
-    val crew: List<CrewMember> = emptyList(),
-    val selectedCrew: String? = null,
-
-    /** The back-and-forth with the crew member, once this alert has been delegated
-     * (`alert.sessionId != null`). Empty and not loading just means never delegated. */
-    val conversation: List<ConversationMessage> = emptyList(),
-    val conversationLoading: Boolean = false,
-
-    /** "Open full chat" — delegates first if this alert hasn't been yet (that's what
-     * creates the session), then this is set so the screen navigates into the real thread. */
+    /** True while a tap is being sent. */
+    val busy: Boolean = false,
     val openingChat: Boolean = false,
     val openChatSessionId: String? = null,
-    /** Text to pre-fill in that chat's message box — the alert's own words, for the person to
-     * edit and send (nothing has been sent). Null when just reopening an existing chat. */
+    /** Pre-fill for the chat's message box. The API only ever gives one when a specific action's
+     * prompt was picked; "Chat about this" gives none, because the chat carries the alert itself. */
     val openChatDraft: String? = null,
 )
 
+/**
+ * Shows one alert and forwards taps. It decides nothing: which actions can be tapped, what they say,
+ * whether the alert closes and which buttons close it all arrive in [Alert.actions] and
+ * [Alert.workflow]. The one thing it does is read the alert again every few seconds while the API
+ * says an action is running, so the result appears without leaving the screen.
+ */
 class AlertDetailViewModel(
     private val alertId: String,
     private val repo: AlertsRepository,
@@ -59,92 +49,91 @@ class AlertDetailViewModel(
     private val _uiState = MutableStateFlow(AlertDetailUiState())
     val uiState: StateFlow<AlertDetailUiState> = _uiState.asStateFlow()
 
+    private var polling: Job? = null
+
     init {
         viewModelScope.launch {
-            val alert = try {
-                val alert = repo.getAlert(alertId)
-                _uiState.update { it.copy(alert = alert, isLoading = false) }
-                alert
+            try {
+                show(repo.getAlert(alertId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.friendlyMessage()) }
-                return@launch
             }
-
-            // Best-effort, and sequenced after the alert so the "prefer the
-            // alert's own crew member" match below has it to compare against — an
-            // account with no crew configured, or a request that fails,
-            // just means no picker; the delegate call itself is still what
-            // surfaces "you need to set one up".
             try {
-                val crew = authRepository.getCrew().crew
-                val preferred = when {
-                    alert.crew != null && crew.any { it.name == alert.crew } -> alert.crew
-                    else -> crew.firstOrNull { it.isDefault }?.name
-                }
-                _uiState.update { it.copy(crew = crew, selectedCrew = preferred) }
+                _uiState.update { it.copy(crew = authRepository.getCrew().crew) }
             } catch (_: Exception) {
-                // no picker — see comment above
-            }
-
-            val sessionId = alert.sessionId ?: return@launch
-            _uiState.update { it.copy(conversationLoading = true) }
-            try {
-                val conversation = repo.getConversation(sessionId)
-                _uiState.update { it.copy(conversation = conversation, conversationLoading = false) }
-            } catch (_: Exception) {
-                // best-effort, same as the crew picker above — the alert itself already loaded fine
-                _uiState.update { it.copy(conversationLoading = false) }
+                // a plain chip
             }
         }
     }
 
-    fun selectCrew(name: String) = _uiState.update { it.copy(selectedCrew = name) }
-
-    fun toggleSnooze() = _uiState.update { it.copy(showSnoozeOptions = !it.showSnoozeOptions) }
-
-    fun setNoteText(text: String) = _uiState.update { it.copy(noteText = text) }
-
-    fun snoozeOptions(): List<SnoozeOption> {
-        val now = Instant.now()
-        val tomorrowNine = ZonedDateTime.now(ZoneId.systemDefault())
-            .plusDays(1)
-            .withHour(9).withMinute(0).withSecond(0).withNano(0)
-            .toInstant()
-        return listOf(
-            SnoozeOption("1 hour", now.plus(Duration.ofHours(1))),
-            SnoozeOption("3 hours", now.plus(Duration.ofHours(3))),
-            SnoozeOption("Tomorrow, 9am", tomorrowNine),
-        )
+    /** Read it again — on coming back to the screen (after the mail app, say). */
+    fun refresh() {
+        viewModelScope.launch {
+            try {
+                show(repo.getAlert(alertId))
+            } catch (_: Exception) {
+                // keep what is on screen
+            }
+        }
     }
 
-    fun snooze(option: SnoozeOption) = resolve {
-        repo.snooze(alertId, option.until.toString())
-        "Snoozed for ${option.label.lowercase()}"
+    private fun show(alert: Alert) {
+        _uiState.update { it.copy(alert = alert, isLoading = false, busy = false, error = null) }
+        if (alert.workflow.phase == "working") startPolling()
     }
 
-    /** Tapping one of "Hermes suggests": opens the chat with that suggestion's text ready to
-     * edit — nothing is sent to Hermes until the person sends it. */
-    fun pickSuggestedAction(index: Int) = takeToChat(index)
+    private fun startPolling() {
+        if (polling?.isActive == true) return
+        polling = viewModelScope.launch {
+            while (true) {
+                delay(POLL_MILLIS)
+                val alert = try {
+                    repo.getAlert(alertId)
+                } catch (_: Exception) {
+                    continue
+                }
+                _uiState.update { it.copy(alert = alert) }
+                if (alert.workflow.phase != "working") break
+            }
+        }
+    }
 
-    /** "Take this to chat": same, with the alert's own title and details as the draft. */
-    fun openFullChat() = takeToChat(null)
+    /** Tap an action. */
+    fun run(index: Int) {
+        if (_uiState.value.busy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(busy = true, error = null) }
+            try {
+                show(repo.runAction(alertId, index))
+            } catch (e: Exception) {
+                // A 409 means it moved underneath us (closed, or something else is running): read it again.
+                if (e.isStaleTransition()) refresh() else _uiState.update { it.copy(error = e.delegateErrorMessage()) }
+                _uiState.update { it.copy(busy = false) }
+            }
+        }
+    }
 
-    /** The API creates (or reuses) the chat, marks the alert handled, and returns the draft —
-     * this just carries it to the thread. Delegation, which sends right away, stays for the
-     * "New delegation" screen where the person has already typed an instruction. */
-    private fun takeToChat(suggestedActionIndex: Int?) {
+    /** One of the buttons the API offered for closing the alert. */
+    fun close(reason: String) {
+        viewModelScope.launch {
+            try {
+                repo.close(alertId, reason)
+                _uiState.update { it.copy(done = true) }
+            } catch (e: Exception) {
+                if (e.isStaleTransition()) refresh() else _uiState.update { it.copy(error = e.friendlyMessage()) }
+            }
+        }
+    }
+
+    /** "Chat about this": the API opens (or reuses) the alert's chat and the chat carries the alert. */
+    fun openChat() {
         if (_uiState.value.openingChat) return
         viewModelScope.launch {
             _uiState.update { it.copy(openingChat = true, error = null) }
             try {
-                val result = repo.takeToChat(alertId, suggestedActionIndex, _uiState.value.selectedCrew)
+                val result = repo.takeToChat(alertId, suggestedActionIndex = null, crew = null)
                 _uiState.update {
-                    it.copy(
-                        alert = result.alert,
-                        openingChat = false,
-                        openChatSessionId = result.sessionId,
-                        openChatDraft = result.draft,
-                    )
+                    it.copy(alert = result.alert, openingChat = false, openChatSessionId = result.sessionId, openChatDraft = result.draft)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(openingChat = false, error = e.delegateErrorMessage()) }
@@ -152,32 +141,11 @@ class AlertDetailViewModel(
         }
     }
 
-    /** Called right after the screen acts on [AlertDetailUiState.openChatSessionId] — this
-     * ViewModel can outlive a round trip into the thread and back, so leaving it set would
-     * re-trigger the navigation every time (same class of bug as ChatListViewModel's
-     * createdSessionId). */
+    /** Called right after the screen acts on [AlertDetailUiState.openChatSessionId] — this ViewModel can
+     * outlive a round trip into the thread and back, so leaving it set would re-open the chat every time. */
     fun consumeOpenChat() = _uiState.update { it.copy(openChatSessionId = null, openChatDraft = null) }
 
-    fun dismiss() = resolve {
-        val note = _uiState.value.noteText.ifBlank { null }
-        repo.dismiss(alertId, note)
-        if (note != null) "Ignored — noted" else "Ignored"
-    }
-
-    fun act() = resolve {
-        val note = _uiState.value.noteText.ifBlank { null }
-        repo.act(alertId, note)
-        if (note != null) "Marked as handled — noted" else "Marked as handled"
-    }
-
-    private fun resolve(onError: (Throwable) -> String = Throwable::friendlyMessage, call: suspend () -> String) {
-        viewModelScope.launch {
-            try {
-                val toastText = call()
-                _uiState.update { it.copy(toast = toastText, done = true) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = onError(e)) }
-            }
-        }
+    private companion object {
+        const val POLL_MILLIS = 3_000L
     }
 }
