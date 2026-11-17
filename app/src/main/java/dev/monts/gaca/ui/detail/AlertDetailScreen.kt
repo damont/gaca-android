@@ -318,7 +318,8 @@ private fun LinkPill(link: AlertLink, onClick: () -> Unit) {
 @Composable
 private fun ActionsSection(alert: Alert, busy: Boolean, onRun: (Int) -> Unit) {
     val workflow = alert.workflow
-    val (big, rows) = alert.actions.partition { it.prominent }
+    // A big "Add all" button is only for one still to tap or running; once it has finished or failed it reads like any other row.
+    val (big, rows) = alert.actions.partition { it.prominent && (it.state == "idle" || it.state == "running") }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             workflow.actionsHeading?.let {
@@ -371,7 +372,7 @@ private fun ActionRow(action: AlertAction, busy: Boolean, onRun: (Int) -> Unit) 
                         }
                     }
                 }
-                result?.draft?.let { DraftCard(it, title = action.label) }
+                result?.draft?.let { DraftCard(it, title = null) }
             }
         }
         "failed" -> Column(
