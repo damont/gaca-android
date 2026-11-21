@@ -31,7 +31,7 @@ class ArtifactSharingTest {
         assertEquals(ArtifactRole.Owner, a.role)
         assertEquals(listOf(ArtifactBadge.Private), a.badges)
         assertFalse(list.stale)
-        assertTrue(a.matches(ArtifactFilter.Mine))
+        assertTrue(a.matches(ArtifactFilter.Pages))
     }
 
     @Test fun `the cloud-aware list decodes home, role, owner, members, published and stale`() {
@@ -48,12 +48,13 @@ class ArtifactSharingTest {
         assertNull(a.publishedTemplateId)
     }
 
-    @Test fun `Mine is what you own, Shared with me is what you do not, whether local or in the cloud`() {
+    @Test fun `My pages shows everything you can use, and each card says whose it is and where it lives`() {
         val own = page("1")
         val ownInCloud = page("2", ArtifactHome.Cloud)
         val theirs = page("3", ArtifactHome.Cloud, ArtifactRole.Viewer, sharedBy = "ada")
-        assertEquals(listOf("1", "2"), listOf(own, ownInCloud, theirs).filter { it.matches(ArtifactFilter.Mine) }.map { it.id })
-        assertEquals(listOf("3"), listOf(own, ownInCloud, theirs).filter { it.matches(ArtifactFilter.Shared) }.map { it.id })
+        assertEquals(listOf("1", "2", "3"), listOf(own, ownInCloud, theirs).filter { it.matches(ArtifactFilter.Pages) }.map { it.id })
+        assertEquals(listOf("Mine", "Mine", "Shared with me"), listOf(own, ownInCloud, theirs).map { it.ownershipLabel })
+        assertEquals(listOf("This server", "Cloud", "Cloud"), listOf(own, ownInCloud, theirs).map { it.locationLabel })
         assertFalse(own.matches(ArtifactFilter.Gallery))
     }
 
@@ -97,11 +98,10 @@ class ArtifactSharingTest {
         assertNull(page().transferLine)
     }
 
-    @Test fun `the screen's visible list follows the chip and the search together`() {
+    @Test fun `the screen's visible list follows the view and the search together`() {
         val all = listOf(page("1"), page("2", ArtifactHome.Cloud, ArtifactRole.Editor, sharedBy = "ada"), page("3"))
         val state = ArtifactsUiState(artifacts = all)
-        assertEquals(listOf("1", "3"), state.visible.map { it.id })
-        assertEquals(listOf("2"), state.copy(filter = ArtifactFilter.Shared).visible.map { it.id })
+        assertEquals(listOf("1", "2", "3"), state.visible.map { it.id })
         assertEquals(listOf("3"), state.copy(query = "t3").visible.map { it.id })
         assertTrue(state.copy(filter = ArtifactFilter.Gallery).visible.isEmpty())
     }
