@@ -62,6 +62,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.FlowRow
+import dev.monts.gaca.ui.theme.SuggestBackground
+import dev.monts.gaca.data.repo.ownershipLabel
+import dev.monts.gaca.data.repo.locationLabel
 import dev.monts.gaca.data.repo.Artifact
 import dev.monts.gaca.data.repo.ArtifactBadge
 import dev.monts.gaca.data.repo.ArtifactFilter
@@ -74,6 +78,7 @@ import dev.monts.gaca.data.repo.canLeave
 import dev.monts.gaca.data.repo.canPublish
 import dev.monts.gaca.data.repo.canShare
 import dev.monts.gaca.data.repo.isSharedWithMe
+import dev.monts.gaca.data.repo.isMine
 import dev.monts.gaca.data.repo.peopleLine
 import dev.monts.gaca.data.repo.sharedByLine
 import dev.monts.gaca.data.repo.transferLine
@@ -89,7 +94,7 @@ import dev.monts.gaca.ui.theme.TextPrimary
 import dev.monts.gaca.ui.theme.TextSecondary
 import dev.monts.gaca.util.relativeTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ArtifactsScreen(
     viewModel: ArtifactsViewModel,
@@ -123,7 +128,7 @@ fun ArtifactsScreen(
         ) {
             Column {
                 Text("Artifacts", style = MaterialTheme.typography.headlineSmall, color = HeaderAccent)
-                Text("Pages your crew has made for you", style = MaterialTheme.typography.bodyMedium, color = TextMeta)
+                Text(if (gallery) "Pages other people published to the cloud" else "Yours and shared with you", style = MaterialTheme.typography.bodyMedium, color = TextMeta)
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary)
@@ -149,16 +154,18 @@ fun ArtifactsScreen(
                 )
             }
         }
-        if (state.filter == ArtifactFilter.Shared) {
-            TextButton(onClick = onJoinWithLink, modifier = Modifier.padding(horizontal = 14.dp)) { Text("Join with a link") }
-        }
         if (!gallery) {
-            Row(Modifier.padding(horizontal = 22.dp, vertical = 2.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 22.dp, end = 14.dp, top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 FilterChip(
                     selected = state.showArchived,
                     onClick = { viewModel.setShowArchived(!state.showArchived) },
                     label = { Text("Show archived") },
                 )
+                TextButton(onClick = onJoinWithLink) { Text("Join with a link") }
             }
         }
         if (state.stale && !gallery) {
@@ -210,12 +217,8 @@ fun ArtifactsScreen(
                 }
                 state.visible.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (state.artifacts.isEmpty() || state.filter == ArtifactFilter.Shared && state.artifacts.none { it.isSharedWithMe }) {
-                            if (state.filter == ArtifactFilter.Shared) {
-                                "Nothing has been shared with you yet. When someone sends you a link to a page, it will show up here."
-                            } else {
-                                "Nothing here yet. Ask your crew for a page — a Costco list, a trip planner, a tracker — and it will show up here."
-                            }
+                        if (state.artifacts.isEmpty()) {
+                            "Nothing here yet. Ask your crew for a page — a Costco list, a trip planner, a tracker — or join one someone shared with you, and it will show up here."
                         } else {
                             "No pages match."
                         },
@@ -442,17 +445,28 @@ private fun ArtifactRow(
     }
 }
 
-/** Private / Shared / Published, plus for somebody else's page the people icon, "Shared by …" and your role. */
+/** Mine / Shared with me, Cloud / This server, then Shared (others are in your page) and Published, plus who shared it. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun BadgeRow(artifact: Artifact) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        artifact.badges.forEach { Tag(it.label, if (it == ArtifactBadge.Published) SuccessBg else ChipBackground, if (it == ArtifactBadge.Published) SuccessInk else HeaderAccent) }
-        val who = artifact.sharedByLine ?: artifact.peopleLine
-        if (who != null) {
-            Icon(Icons.Filled.Group, contentDescription = "Shared", tint = TextMeta, modifier = Modifier.size(14.dp))
-            Text(who, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Tag(artifact.ownershipLabel, if (artifact.isMine) HeaderAccent else SuggestBackground, if (artifact.isMine) OnAccent else HeaderAccent)
+        Tag(artifact.locationLabel, ChipBackground, HeaderAccent)
+        // "Private" is what Mine on this server already says, so only the badges that add something show.
+        artifact.badges.filter { it != ArtifactBadge.Private }.forEach {
+            Tag(it.label, if (it == ArtifactBadge.Published) SuccessBg else ChipBackground, if (it == ArtifactBadge.Published) SuccessInk else HeaderAccent)
         }
         if (artifact.isSharedWithMe) Tag(artifact.role.label, ChipBackground, HeaderAccent)
+        val who = artifact.sharedByLine ?: artifact.peopleLine
+        if (who != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Filled.Group, contentDescription = "Shared", tint = TextMeta, modifier = Modifier.size(14.dp))
+                Text(who, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
         artifact.transferLine?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = TextMeta) }
     }
 }
@@ -539,6 +553,11 @@ private fun TemplateRow(template: Template, adding: Boolean, enabled: Boolean, o
             }
             val meta = listOfNotNull(template.author?.let { "by $it" }, template.category, if (template.downloads > 0) "${template.downloads} added" else null).joinToString(" · ")
             if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelSmall, color = TextMeta)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Tag("Gallery", SuccessBg, SuccessInk)
+                Tag("Cloud", ChipBackground, HeaderAccent)
+            }
         }
         if (adding) {
             CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.padding(12.dp).size(20.dp), strokeWidth = 2.dp)

@@ -16,8 +16,8 @@ enum class ArtifactRole(val label: String) {
     }
 }
 
-/** The chips on the Artifacts tab. Mine and Shared with me split the list; Gallery is a different list altogether. */
-enum class ArtifactFilter(val label: String) { Mine("Mine"), Shared("Shared with me"), Gallery("Gallery") }
+/** The two views on the Artifacts tab: every page you can use (yours and shared with you, each card says which), or the cloud gallery. */
+enum class ArtifactFilter(val label: String) { Pages("My pages"), Gallery("Gallery") }
 
 /** The badge on a row. A page can carry more than one (shared and published). */
 enum class ArtifactBadge(val label: String) { Private("Private"), Shared("Shared"), Published("Published") }
@@ -42,10 +42,15 @@ val Artifact.canBringHome: Boolean get() = canPublish
 val Artifact.canLeave: Boolean get() = isSharedWithMe && home == ArtifactHome.Cloud && !moving
 
 fun Artifact.matches(filter: ArtifactFilter): Boolean = when (filter) {
-    ArtifactFilter.Mine -> isMine
-    ArtifactFilter.Shared -> isSharedWithMe
+    ArtifactFilter.Pages -> true
     ArtifactFilter.Gallery -> false
 }
+
+/** The first label on a card: whose page this is. */
+val Artifact.ownershipLabel: String get() = if (isMine) "Mine" else "Shared with me"
+
+/** The second label: whether it lives in the GACA Cloud or on your own server. */
+val Artifact.locationLabel: String get() = if (home == ArtifactHome.Cloud) "Cloud" else "This server"
 
 /**
  * Private (only you), Shared (someone else is in it, or it is theirs), Published (in the gallery). A page in the

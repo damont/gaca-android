@@ -72,7 +72,7 @@ import dev.monts.gaca.ui.theme.TextSecondary
 import dev.monts.gaca.ui.theme.crewChipTint
 import dev.monts.gaca.ui.theme.crewColor
 
-/** Only open alerts can be swiped away: left = not useful, right = I handled it. */
+/** Only open alerts can be swiped away: left = not useful, right = glad to know. */
 private fun InboxTab.isSwipeTriageable(): Boolean = this == InboxTab.NEW
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,7 +196,7 @@ fun InboxScreen(
 
         if (state.activeTab == InboxTab.NEW && state.alerts.isNotEmpty()) {
             Text(
-                "swipe left to skip, right when it's handled",
+                "swipe left if not useful, right if glad to know",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMeta,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
@@ -296,13 +296,13 @@ private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
         if (direction == SwipeToDismissBoxValue.StartToEnd) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.Check, contentDescription = null, tint = HeaderAccent, modifier = Modifier.size(18.dp))
-                Text("Handled", style = MaterialTheme.typography.labelSmall, color = HeaderAccent)
+                Text("Glad to know", style = MaterialTheme.typography.labelSmall, color = HeaderAccent)
             }
         } else Spacer(Modifier)
 
         if (direction == SwipeToDismissBoxValue.EndToStart) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Ignore", style = MaterialTheme.typography.labelSmall, color = TextMeta)
+                Text("Not useful", style = MaterialTheme.typography.labelSmall, color = TextMeta)
                 Icon(Icons.Filled.Close, contentDescription = null, tint = TextMeta, modifier = Modifier.size(18.dp))
             }
         } else Spacer(Modifier)

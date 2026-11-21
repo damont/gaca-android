@@ -69,11 +69,11 @@ class InboxViewModel(
         load(showSpinner = true)
     }
 
-    /** Swipe left: not worth their time. */
+    /** Swipe left: "Not useful". */
     fun dismiss(alertId: String) = resolve(alertId) { repo.close(alertId, "not_useful") }
 
-    /** Swipe right: I handled it. */
-    fun act(alertId: String) = resolve(alertId) { repo.close(alertId, "done_by_me") }
+    /** Swipe right: "Glad to know" (useful, nothing to do). */
+    fun act(alertId: String) = resolve(alertId) { repo.close(alertId, "noted") }
 
     private fun resolve(alertId: String, call: suspend () -> Alert) {
         // Optimistic removal — swiping a card away should feel instant, not wait on the network.

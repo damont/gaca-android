@@ -40,7 +40,7 @@ data class UndoOffer(val id: String, val title: String)
 
 data class ArtifactsUiState(
     val artifacts: List<Artifact> = emptyList(),
-    val filter: ArtifactFilter = ArtifactFilter.Mine,
+    val filter: ArtifactFilter = ArtifactFilter.Pages,
     /** The cloud could not be asked, so shared pages are as they were last time. */
     val stale: Boolean = false,
     val gallery: GalleryUiState = GalleryUiState(),
@@ -179,7 +179,7 @@ class ArtifactsViewModel(
         }
     }
 
-    /** Makes a private copy on the person's server (the UI has asked them first), then shows it under Mine. */
+    /** Makes a private copy on the person's server (the UI has asked them first), then shows it under My pages. */
     fun install(template: Template) {
         if (_uiState.value.gallery.installingId != null) return
         viewModelScope.launch {
@@ -187,7 +187,7 @@ class ArtifactsViewModel(
             try {
                 templates.install(template.id)
                 _uiState.update {
-                    it.copy(gallery = it.gallery.copy(installingId = null), filter = ArtifactFilter.Mine,
+                    it.copy(gallery = it.gallery.copy(installingId = null), filter = ArtifactFilter.Pages,
                         notice = "Added “${template.title}” to your pages. It is private until you share it.")
                 }
                 load(showSpinner = false)
