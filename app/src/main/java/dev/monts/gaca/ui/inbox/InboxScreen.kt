@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -60,6 +61,7 @@ import dev.monts.gaca.ui.theme.ChipBackground
 import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.OnAccent
 import dev.monts.gaca.ui.theme.PageBackground
+import dev.monts.gaca.ui.theme.ReminderInk
 import dev.monts.gaca.ui.theme.SeverityInfoBg
 import dev.monts.gaca.ui.theme.SeverityInfoDot
 import dev.monts.gaca.ui.theme.SeverityUrgentBg
@@ -322,7 +324,10 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
             .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
+        if (alert.kind == "reminder") {
+            // A reminder that went off: the clock instead of the severity dot.
+            Icon(Icons.Filled.Schedule, contentDescription = "Reminder", tint = ReminderInk, modifier = Modifier.size(20.dp))
+        } else Box(
             Modifier
                 .padding(top = 6.dp)
                 .size(8.dp)

@@ -6,6 +6,9 @@ import dev.monts.gaca.data.repo.Alert
 import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.Reminder
+import dev.monts.gaca.data.repo.RemindersRepository
+import dev.monts.gaca.ui.chatthread.ReminderUndo
 import dev.monts.gaca.data.repo.delegateErrorMessage
 import dev.monts.gaca.data.repo.isStaleTransition
 import dev.monts.gaca.util.friendlyMessage
@@ -32,6 +35,9 @@ data class AlertDetailUiState(
     /** Pre-fill for the chat's message box. The API only ever gives one when a specific action's
      * prompt was picked; "Chat about this" gives none, because the chat carries the alert itself. */
     val openChatDraft: String? = null,
+    /** The reminder a finished "Remind me..." action set up, while it can still be taken back. */
+    val suggestedReminder: Reminder? = null,
+    val suggestedReminderUndo: ReminderUndo? = null,
 )
 
 /**
@@ -44,6 +50,7 @@ class AlertDetailViewModel(
     private val alertId: String,
     private val repo: AlertsRepository,
     private val authRepository: AuthRepository,
+    private val remindersRepository: RemindersRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertDetailUiState())
@@ -80,6 +87,40 @@ class AlertDetailViewModel(
     private fun show(alert: Alert) {
         _uiState.update { it.copy(alert = alert, isLoading = false, busy = false, error = null) }
         if (alert.workflow.phase == "working") startPolling()
+        findSuggestedReminder(alert)
+    }
+
+    private var lookedForReminder = false
+
+    /** Once a "Remind me..." action has finished, find the reminder it made (it carries this alert's id)
+     * so the row can offer Undo. Best-effort: with none found the row simply has no Undo. */
+    private fun findSuggestedReminder(alert: Alert) {
+        val done = alert.actions.any { it.kind == "reminder" && it.state == "done" }
+        if (!done || lookedForReminder) return
+        lookedForReminder = true
+        viewModelScope.launch {
+            try {
+                val found = remindersRepository.listOpen().firstOrNull { it.sourceAlertId == alertId && it.state == "pending" }
+                _uiState.update { it.copy(suggestedReminder = found) }
+            } catch (_: Exception) {
+                lookedForReminder = false
+            }
+        }
+    }
+
+    /** Undo on the finished reminder action. */
+    fun undoSuggestedReminder() {
+        val reminder = _uiState.value.suggestedReminder ?: return
+        if (_uiState.value.suggestedReminderUndo == ReminderUndo.WORKING) return
+        _uiState.update { it.copy(suggestedReminderUndo = ReminderUndo.WORKING) }
+        viewModelScope.launch {
+            try {
+                remindersRepository.cancel(reminder.id)
+                _uiState.update { it.copy(suggestedReminderUndo = ReminderUndo.DONE) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(suggestedReminderUndo = ReminderUndo.FAILED) }
+            }
+        }
     }
 
     private fun startPolling() {

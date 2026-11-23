@@ -10,6 +10,8 @@ import dev.monts.gaca.data.repo.AlertsRepository
 import dev.monts.gaca.data.repo.AuthRepository
 import dev.monts.gaca.data.repo.ConversationMessage
 import dev.monts.gaca.data.repo.CrewMember
+import dev.monts.gaca.data.repo.Reminder
+import dev.monts.gaca.data.repo.RemindersRepository
 import dev.monts.gaca.data.repo.SessionDetail
 import dev.monts.gaca.data.repo.SessionsRepository
 import dev.monts.gaca.data.repo.Skill
@@ -58,7 +60,15 @@ data class ChatThreadUiState(
 
     /** Set only when the session was opened by delegating an alert — pinned at the top of the thread. */
     val fromAlert: Alert? = null,
+
+    /** Every reminder this thread has seen, newest read of each. Cancelled ones stay so their card can say so. */
+    val reminders: List<Reminder> = emptyList(),
+    /** What Undo is doing for a reminder, by id. Absent means untouched. */
+    val reminderUndo: Map<String, ReminderUndo> = emptyMap(),
 )
+
+/** Where tapping Undo on a reminder card has got to. */
+enum class ReminderUndo { WORKING, DONE, FAILED }
 
 @Serializable
 private data class AssistantDeltaPayload(val text: String)
@@ -85,6 +95,7 @@ class ChatThreadViewModel(
     private val authRepository: AuthRepository,
     private val alertsRepository: AlertsRepository,
     private val skillsRepository: SkillsRepository,
+    private val remindersRepository: RemindersRepository,
     /** Pre-fills the input, e.g. arriving from a tapped skill — the user still has to send it. */
     initialMessageText: String? = null,
 ) : ViewModel() {
@@ -109,6 +120,35 @@ class ChatThreadViewModel(
             if (detail != null) openStream(detail)
             loadCrewAndAlert(detail)
             detail?.session?.crew?.let { loadSkills(it) }
+            loadReminders()
+        }
+    }
+
+    /** Best-effort: with none, replies simply show no reminder card. Merged, so a cancelled one keeps its card. */
+    private suspend fun loadReminders() {
+        try {
+            val fresh = remindersRepository.listOpen()
+            _uiState.update { state ->
+                val seen = state.reminders.associateBy { it.id } + fresh.associateBy { it.id }
+                state.copy(reminders = seen.values.toList())
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Undo on a reminder card. On failure the card says so and offers Retry; a reminder that has already
+     * fired comes back from the API as fired on the next read, and its card then drops Undo. */
+    fun undoReminder(id: String) {
+        if (_uiState.value.reminderUndo[id] == ReminderUndo.WORKING) return
+        _uiState.update { it.copy(reminderUndo = it.reminderUndo + (id to ReminderUndo.WORKING)) }
+        viewModelScope.launch {
+            try {
+                remindersRepository.cancel(id)
+                _uiState.update { it.copy(reminderUndo = it.reminderUndo + (id to ReminderUndo.DONE)) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(reminderUndo = it.reminderUndo + (id to ReminderUndo.FAILED)) }
+                loadReminders()
+            }
         }
     }
 
@@ -294,6 +334,7 @@ class ChatThreadViewModel(
     private fun finishRun(error: String?) {
         viewModelScope.launch {
             reloadSession()
+            loadReminders()
             liveRunId = null
             _uiState.update {
                 it.copy(running = false, runStartedAtMillis = null, liveText = "", currentTool = null, error = error ?: it.error)

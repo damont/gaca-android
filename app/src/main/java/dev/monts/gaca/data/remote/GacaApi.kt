@@ -108,6 +108,13 @@ interface GacaApi {
     @POST("alerts/{id}/delegate")
     suspend fun delegateAlert(@Path("id") id: String, @Body body: AlertDelegateRequest): AlertDto
 
+    /** `state=open` is pending plus fired. The app never lists reminders for a screen of its own. */
+    @GET("reminders")
+    suspend fun listReminders(@Query("state") state: String = "open"): ReminderListDto
+
+    @PATCH("reminders/{id}")
+    suspend fun updateReminder(@Path("id") id: String, @Body body: ReminderUpdateRequest): ReminderDto
+
     @GET("sessions")
     suspend fun listSessions(): SessionListDto
 

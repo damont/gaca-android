@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.monts.gaca.data.repo.Alert
 import dev.monts.gaca.data.repo.ConversationMessage
+import dev.monts.gaca.data.repo.remindersByReply
 import dev.monts.gaca.data.repo.CrewMember
 import dev.monts.gaca.data.repo.Severity
 import dev.monts.gaca.push.ActiveChat
@@ -227,6 +228,9 @@ private fun MessageList(state: ChatThreadUiState, messages: List<ConversationMes
     val member = state.crewMember
     val crewName = state.sessionDetail?.session?.crew
     val rows = remember(messages) { threadRows(messages).asReversed() }
+    // Which reminders each reply made, worked out from when they were created; see remindersByReply.
+    val sessionId = state.sessionDetail?.session?.id.orEmpty()
+    val byReply = remember(messages, state.reminders) { remindersByReply(messages, state.reminders, sessionId) }
     val imeVisible = WindowInsets.isImeVisible
     // reverseLayout puts index 0 (the newest) at the bottom, so "scroll to the newest" is always
     // "scroll to 0" — never a chase after an unknown item height.
@@ -256,7 +260,13 @@ private fun MessageList(state: ChatThreadUiState, messages: List<ConversationMes
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.divider?.let { DayDivider(it) }
                     if (row.message.role == "assistant") {
-                        CrewTurn(row.message, member, crewName, removed = state.sessionDetail?.session?.crewRemoved == true)
+                        CrewTurn(
+                            row.message, member, crewName,
+                            removed = state.sessionDetail?.session?.crewRemoved == true,
+                            reminders = byReply[row.message.id].orEmpty(),
+                            reminderUndo = state.reminderUndo,
+                            onUndoReminder = viewModel::undoReminder,
+                        )
                     } else {
                         UserBubble(row.message, viewModel::loadImage)
                     }

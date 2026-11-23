@@ -409,6 +409,7 @@ fun GacaNavHost(
                             container.authRepository,
                             container.alertsRepository,
                             container.skillsRepository,
+                            container.remindersRepository,
                             initialMessageText = prefill,
                         )
                     }
@@ -446,7 +447,7 @@ fun GacaNavHost(
             val alertId = backStackEntry.arguments?.getString("alertId").orEmpty()
             val vm = viewModel<AlertDetailViewModel>(
                 factory = viewModelFactory {
-                    initializer { AlertDetailViewModel(alertId, container.alertsRepository, container.authRepository) }
+                    initializer { AlertDetailViewModel(alertId, container.alertsRepository, container.authRepository, container.remindersRepository) }
                 },
             )
             AlertDetailScreen(

@@ -19,6 +19,7 @@ import dev.monts.gaca.data.repo.BriefingRepository
 import dev.monts.gaca.data.repo.CrewProfileRepository
 import dev.monts.gaca.data.repo.ImageRepository
 import dev.monts.gaca.data.repo.PushRepository
+import dev.monts.gaca.data.repo.RemindersRepository
 import dev.monts.gaca.data.repo.SessionsRepository
 import dev.monts.gaca.data.repo.AutomationsRepository
 import dev.monts.gaca.data.repo.HeartbeatRepository
@@ -87,6 +88,7 @@ class AppContainer(context: Context) {
     val authRepository = AuthRepository(api, tokenStore)
     val alertsRepository = AlertsRepository(api)
     val pushRepository = PushRepository(api)
+    val remindersRepository = RemindersRepository(api)
     private val imageRepository = ImageRepository(okHttpClient, baseUrl)
     val sessionsRepository = SessionsRepository(api, sseClient, imageRepository)
     val skillsRepository = SkillsRepository(api)

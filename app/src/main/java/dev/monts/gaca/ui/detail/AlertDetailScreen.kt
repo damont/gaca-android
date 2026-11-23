@@ -35,6 +35,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.TextButton
+import dev.monts.gaca.ui.chatthread.ReminderUndo
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Button
@@ -228,7 +231,10 @@ private fun AlertDetailBody(state: AlertDetailUiState, viewModel: AlertDetailVie
         }
 
         if (alert.actions.isNotEmpty()) {
-            ActionsSection(alert, state.busy, viewModel::run)
+            ActionsSection(
+                alert, state.busy, viewModel::run,
+                undo = state.suggestedReminder?.let { ActionUndo(state.suggestedReminderUndo, viewModel::undoSuggestedReminder) },
+            )
         }
 
         ChatEntry(alert, state.openingChat, viewModel::openChat)
@@ -316,7 +322,7 @@ private fun LinkPill(link: AlertLink, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ActionsSection(alert: Alert, busy: Boolean, onRun: (Int) -> Unit) {
+private fun ActionsSection(alert: Alert, busy: Boolean, onRun: (Int) -> Unit, undo: ActionUndo? = null) {
     val workflow = alert.workflow
     // A big "Add all" button is only for one still to tap or running; once it has finished or failed it reads like any other row.
     val (big, rows) = alert.actions.partition { it.prominent && (it.state == "idle" || it.state == "running") }
@@ -331,7 +337,7 @@ private fun ActionsSection(alert: Alert, busy: Boolean, onRun: (Int) -> Unit) {
                 }
             }
         }
-        rows.forEach { ActionRow(it, busy, onRun) }
+        rows.forEach { ActionRow(it, busy, onRun, undo.takeIf { _ -> it.kind == "reminder" }) }
         big.forEach { BigActionButton(it, busy, onRun) }
     }
 }
@@ -340,11 +346,15 @@ private fun iconFor(kind: String?): ImageVector = when {
     kind == null -> Icons.Filled.TaskAlt
     kind.startsWith("calendar") -> Icons.Filled.CalendarMonth
     kind.startsWith("email") -> Icons.Filled.MailOutline
+    kind == "reminder" -> Icons.Filled.Schedule
     else -> Icons.Filled.TaskAlt
 }
 
+/** Undo for a finished "Remind me..." action; absent when there is nothing to take back. */
+private class ActionUndo(val status: ReminderUndo?, val onUndo: () -> Unit)
+
 @Composable
-private fun ActionRow(action: AlertAction, busy: Boolean, onRun: (Int) -> Unit) {
+private fun ActionRow(action: AlertAction, busy: Boolean, onRun: (Int) -> Unit, undo: ActionUndo? = null) {
     when (action.state) {
         "running" -> RowCard(SuggestBackground) {
             Tile(PageBackground) { CircularProgressIndicator(color = HeaderAccent, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp) }
@@ -360,7 +370,14 @@ private fun ActionRow(action: AlertAction, busy: Boolean, onRun: (Int) -> Unit) 
                     Tile(SuccessDot) { Icon(Icons.Filled.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(20.dp)) }
                     Column(Modifier.weight(1f)) {
                         Text(action.label, style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = SuccessInk)
-                        result?.summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = SuccessInk) }
+                        val summary = if (undo?.status == ReminderUndo.DONE) "Reminder cancelled" else result?.summary
+                        summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = SuccessInk) }
+                        if (undo?.status == ReminderUndo.FAILED) Text("Couldn't cancel it. Still set.", style = MaterialTheme.typography.bodyMedium, color = SeverityUrgentInk)
+                    }
+                    if (undo != null && undo.status != ReminderUndo.DONE) {
+                        TextButton(onClick = undo.onUndo, enabled = undo.status != ReminderUndo.WORKING, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(if (undo.status == ReminderUndo.FAILED) "Retry" else "Undo", style = MaterialTheme.typography.labelLarge, color = SuccessInk)
+                        }
                     }
                     val uriHandler = LocalUriHandler.current
                     result?.links?.firstOrNull()?.let { link ->
