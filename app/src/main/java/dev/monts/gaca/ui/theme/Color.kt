@@ -53,3 +53,6 @@ val SuccessInk = Color(0xFF2F5C3F)
 
 /** Text that sits on [SeverityUrgentBg] (the plain urgent dot is too light for small text there). */
 val SeverityUrgentInk = Color(0xFF8A3220)
+
+/** Text and icon on [SeverityWarnBg]: the clock on a reminder card and a reminder row. */
+val ReminderInk = Color(0xFF7A5F2E)

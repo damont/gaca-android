@@ -759,3 +759,33 @@ data class InvitePreviewDto(
 /** The page you were added to (only the bits the app needs; the server answers with a whole list row). */
 @Serializable
 data class RedeemedDto(val id: String = "", val title: String = "")
+
+/** Where a reminder came from. Advisory: the app only uses it to find the reminders one reply or alert made. */
+@Serializable
+data class ReminderSourceDto(
+    val kind: String = "agent",
+    val crew: String? = null,
+    @SerialName("session_id") val sessionId: String? = null,
+    @SerialName("alert_id") val alertId: String? = null,
+)
+
+/** A reminder, or a "later" note when [dueAt] is null (it never pings). The app shows the little it needs. */
+@Serializable
+data class ReminderDto(
+    val id: String,
+    val text: String,
+    val kind: String = "timed",
+    @SerialName("due_at") val dueAt: String? = null,
+    @SerialName("explicit_time") val explicitTime: Boolean = false,
+    val state: String,
+    val source: ReminderSourceDto = ReminderSourceDto(),
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("alert_id") val alertId: String? = null,
+)
+
+@Serializable
+data class ReminderListDto(val reminders: List<ReminderDto> = emptyList())
+
+/** The only change the app makes: `cancelled`, from Undo. */
+@Serializable
+data class ReminderUpdateRequest(val state: String)

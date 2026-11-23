@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -31,6 +32,16 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.ui.text.style.TextDecoration
+import dev.monts.gaca.data.repo.Reminder
+import dev.monts.gaca.data.repo.whenLabel
+import dev.monts.gaca.ui.theme.ReminderInk
+import dev.monts.gaca.ui.theme.SeverityInfoBg
+import dev.monts.gaca.ui.theme.SeverityUrgentInk
+import dev.monts.gaca.ui.theme.SeverityWarnBg
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -120,7 +131,16 @@ private fun TurnHeader(member: CrewMember?, fallbackName: String?, removed: Bool
 
 /** A crew member's reply: not a bubble, a full-width turn of activity chip, Markdown and page cards. */
 @Composable
-fun CrewTurn(message: ConversationMessage, member: CrewMember?, fallbackName: String?, removed: Boolean = false) {
+fun CrewTurn(
+    message: ConversationMessage,
+    member: CrewMember?,
+    fallbackName: String?,
+    removed: Boolean = false,
+    /** Reminders this reply made; each gets a small card with Undo under the words. */
+    reminders: List<Reminder> = emptyList(),
+    reminderUndo: Map<String, ReminderUndo> = emptyMap(),
+    onUndoReminder: (String) -> Unit = {},
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TurnHeader(member, fallbackName, removed)
         message.activity?.let { ActivityChip(it) }
@@ -130,6 +150,57 @@ fun CrewTurn(message: ConversationMessage, member: CrewMember?, fallbackName: St
         // An email the agent wrote in this reply (the API split it out): the words above, the draft as a card.
         message.draft?.let { dev.monts.gaca.ui.common.DraftCard(it, title = "Draft") }
         message.artifacts.forEach { PageCard(it, member) }
+        reminders.forEach { ReminderCard(it, reminderUndo[it.id]) { onUndoReminder(it.id) } }
+    }
+}
+
+/**
+ * What the agent set up for you, right under its reply: the text, when, and Undo. A reminder with a time
+ * is warm-tinted with the clock; a note saved for later is grey and says it won't alert you. Once it has fired the
+ * card says so and drops Undo, and once cancelled it is struck through.
+ */
+@Composable
+private fun ReminderCard(reminder: Reminder, undo: ReminderUndo?, onUndo: () -> Unit) {
+    val cancelled = undo == ReminderUndo.DONE || reminder.state == "cancelled"
+    val sent = !cancelled && (reminder.state == "fired" || reminder.state == "done")
+    val failed = undo == ReminderUndo.FAILED && !sent
+    val working = undo == ReminderUndo.WORKING
+    val subtitle = when {
+        cancelled -> "Cancelled"
+        sent -> "Already sent. Find it in Alerts."
+        failed -> "Couldn't cancel it. Still set."
+        reminder.isNote -> "Saved for later · kept 30 days · won't alert you"
+        else -> "Alert set for ${reminder.whenLabel()} · delivered within half an hour"
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (reminder.isNote) SeverityInfoBg else SeverityWarnBg)
+            .padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            if (reminder.isNote) Icons.Filled.Bookmark else Icons.Filled.Schedule,
+            contentDescription = null,
+            tint = if (reminder.isNote) TextSecondary else ReminderInk,
+            modifier = Modifier.size(22.dp),
+        )
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+            Text(
+                reminder.text,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                color = TextPrimary,
+                textDecoration = if (cancelled) TextDecoration.LineThrough else null,
+            )
+            Text(subtitle, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), color = if (failed) SeverityUrgentInk else TextSecondary)
+        }
+        if (!cancelled && !sent) {
+            TextButton(onClick = onUndo, enabled = !working, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (failed) "Retry" else "Undo", style = MaterialTheme.typography.labelLarge, color = HeaderAccent)
+            }
+        }
     }
 }
 
