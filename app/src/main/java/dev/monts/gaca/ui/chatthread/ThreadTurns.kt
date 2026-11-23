@@ -156,7 +156,7 @@ fun CrewTurn(
 
 /**
  * What the agent set up for you, right under its reply: the text, when, and Undo. A reminder with a time
- * is warm-tinted with the clock; a "later" note is grey and says it never pings. Once it has fired the
+ * is warm-tinted with the clock; a note saved for later is grey and says it won't alert you. Once it has fired the
  * card says so and drops Undo, and once cancelled it is struck through.
  */
 @Composable
@@ -169,8 +169,8 @@ private fun ReminderCard(reminder: Reminder, undo: ReminderUndo?, onUndo: () -> 
         cancelled -> "Cancelled"
         sent -> "Already sent. Find it in Alerts."
         failed -> "Couldn't cancel it. Still set."
-        reminder.isNote -> "Later note · kept 30 days · no alert"
-        else -> "${reminder.whenLabel()} · delivered within half an hour"
+        reminder.isNote -> "Saved for later · kept 30 days · won't alert you"
+        else -> "Alert set for ${reminder.whenLabel()} · delivered within half an hour"
     }
     Row(
         Modifier

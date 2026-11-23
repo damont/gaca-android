@@ -326,7 +326,7 @@ private fun AlertRow(alert: Alert, crewByName: Map<String, CrewMember>, onTap: (
     ) {
         if (alert.kind == "reminder") {
             // A reminder that went off: the clock instead of the severity dot.
-            Icon(Icons.Filled.Schedule, contentDescription = "Reminder", tint = ReminderInk, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Schedule, contentDescription = "Timed alert", tint = ReminderInk, modifier = Modifier.size(20.dp))
         } else Box(
             Modifier
                 .padding(top = 6.dp)

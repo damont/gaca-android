@@ -350,7 +350,7 @@ private fun iconFor(kind: String?): ImageVector = when {
     else -> Icons.Filled.TaskAlt
 }
 
-/** Undo for a finished "Remind me..." action; absent when there is nothing to take back. */
+/** Undo for a finished "Alert me..." action; absent when there is nothing to take back. */
 private class ActionUndo(val status: ReminderUndo?, val onUndo: () -> Unit)
 
 @Composable
@@ -370,7 +370,7 @@ private fun ActionRow(action: AlertAction, busy: Boolean, onRun: (Int) -> Unit, 
                     Tile(SuccessDot) { Icon(Icons.Filled.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(20.dp)) }
                     Column(Modifier.weight(1f)) {
                         Text(action.label, style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = SuccessInk)
-                        val summary = if (undo?.status == ReminderUndo.DONE) "Reminder cancelled" else result?.summary
+                        val summary = if (undo?.status == ReminderUndo.DONE) "Alert cancelled" else result?.summary
                         summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = SuccessInk) }
                         if (undo?.status == ReminderUndo.FAILED) Text("Couldn't cancel it. Still set.", style = MaterialTheme.typography.bodyMedium, color = SeverityUrgentInk)
                     }
