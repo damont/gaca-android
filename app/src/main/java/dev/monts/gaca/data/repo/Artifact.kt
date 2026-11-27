@@ -128,7 +128,16 @@ class ArtifactRepository(
         }
     }
 
+    /** Adds a photo to a page (the bytes of one picked/taken photo). The answer is the API's PhotoOut JSON. */
+    suspend fun uploadPhoto(id: String, jpeg: ByteArray): RawResponse = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url("${baseUrl}artifacts/$id/photos").post(jpeg.toRequestBody(JPEG)).build()
+        client.newCall(request).execute().use { response ->
+            RawResponse(response.code, response.body?.string().orEmpty())
+        }
+    }
+
     private companion object {
         val JSON = "application/json".toMediaType()
+        val JPEG = "image/jpeg".toMediaType()
     }
 }

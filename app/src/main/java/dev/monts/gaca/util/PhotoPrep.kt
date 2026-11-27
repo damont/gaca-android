@@ -23,20 +23,30 @@ class PreparedPhoto(val id: String, val jpeg: ByteArray, val thumbnail: Bitmap)
  */
 object PhotoPrep {
     const val MAX_PHOTOS = 4
+
+    /** Photos for an artifact page: kept larger than chat photos (the API re-encodes them at 2048 px anyway). */
+    const val PAGE_MAX_EDGE = 2048
+    const val PAGE_MAX_BYTES = 4_000_000
     private const val MAX_EDGE = 1600
     private const val MAX_BYTES = 1_500_000
     private const val THUMB_EDGE = 256
 
     /** `null` if the file can't be read or decoded. */
-    suspend fun prepare(resolver: ContentResolver, uri: Uri): PreparedPhoto? = withContext(Dispatchers.IO) {
+    suspend fun prepare(
+        resolver: ContentResolver,
+        uri: Uri,
+        maxEdge: Int = MAX_EDGE,
+        maxBytes: Int = MAX_BYTES,
+    ): PreparedPhoto? = withContext(Dispatchers.IO) {
         try {
-            var bitmap = decode(resolver, uri, MAX_EDGE) ?: return@withContext null
+            var bitmap = decode(resolver, uri, maxEdge) ?: return@withContext null
             bitmap = upright(bitmap, orientation(resolver, uri))
+            bitmap = scaleTo(bitmap, maxEdge)
 
-            var edge = MAX_EDGE
+            var edge = maxEdge
             var quality = 85
             var bytes = encode(bitmap, quality)
-            while (bytes.size > MAX_BYTES && (quality > 55 || edge > 800)) {
+            while (bytes.size > maxBytes && (quality > 55 || edge > 800)) {
                 if (quality > 55) {
                     quality -= 10
                 } else {
@@ -45,7 +55,7 @@ object PhotoPrep {
                 }
                 bytes = encode(bitmap, quality)
             }
-            if (bytes.size > MAX_BYTES) return@withContext null
+            if (bytes.size > maxBytes) return@withContext null
             PreparedPhoto(UUID.randomUUID().toString(), bytes, scaleTo(bitmap, THUMB_EDGE))
         } catch (_: Exception) {
             null
