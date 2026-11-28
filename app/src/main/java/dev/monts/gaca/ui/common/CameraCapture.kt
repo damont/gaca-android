@@ -18,12 +18,13 @@ import java.util.UUID
  * The camera app writes into our cache through a FileProvider, so no CAMERA permission is needed.
  */
 @Composable
-fun rememberTakePhoto(onPhoto: (Uri) -> Unit): () -> Unit {
+fun rememberTakePhoto(onCancel: () -> Unit = {}, onPhoto: (Uri) -> Unit): () -> Unit {
     val context = LocalContext.current
     var pending by remember { mutableStateOf<Uri?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        pending?.takeIf { saved }?.let(onPhoto)
+        val uri = pending?.takeIf { saved }
         pending = null
+        if (uri != null) onPhoto(uri) else onCancel()
     }
     return {
         val dir = File(context.cacheDir, "camera").apply { mkdirs() }

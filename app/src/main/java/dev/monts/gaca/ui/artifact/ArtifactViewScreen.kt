@@ -58,6 +58,7 @@ import dev.monts.gaca.ui.theme.HeaderAccent
 import dev.monts.gaca.ui.theme.PageBackground
 import dev.monts.gaca.ui.theme.SeverityUrgentDot
 import dev.monts.gaca.ui.theme.TextSecondary
+import dev.monts.gaca.util.PhotoPrep
 import org.json.JSONObject
 
 private const val PAGE_ORIGIN = "https://artifact.invalid/"
@@ -80,6 +81,7 @@ fun ArtifactViewScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    val photoRequests = rememberPagePhotoRequests()
 
     LaunchedEffect(state.chatSessionId) {
         val sessionId = state.chatSessionId
@@ -176,6 +178,7 @@ fun ArtifactViewScreen(
                         onAsk = viewModel::ask,
                         onToast = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
                         onOpenUrl = { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
+                        photoRequests = photoRequests,
                         onCreated = { webView = it },
                     )
                 }
@@ -187,6 +190,8 @@ fun ArtifactViewScreen(
             }
         }
     }
+
+    PagePhotoSheet(photoRequests)
 
     if (confirmDelete) {
         AlertDialog(
@@ -208,9 +213,11 @@ private fun ArtifactWebView(
     onAsk: (String) -> Unit,
     onToast: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
+    photoRequests: PagePhotoRequests,
     onCreated: (WebView) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val resolver = LocalContext.current.contentResolver
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
@@ -245,6 +252,10 @@ private fun ArtifactWebView(
                     onAsk = onAsk,
                     onOpenUrl = onOpenUrl,
                     onToast = onToast,
+                    pickPhotos = { multiple -> photoRequests.pick(multiple) },
+                    preparePhoto = { uri ->
+                        PhotoPrep.prepare(resolver, uri, PhotoPrep.PAGE_MAX_EDGE, PhotoPrep.PAGE_MAX_BYTES)?.jpeg
+                    },
                 )
                 addJavascriptInterface(bridge, "GacaBridge")
                 webViewClient = object : WebViewClient() {
